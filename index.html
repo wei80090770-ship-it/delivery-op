@@ -336,11 +336,11 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
         <div class="kpi"><div class="l">最早日期</div><div class="v" id="histWxMin">—</div></div>
         <div class="kpi"><div class="l">最新日期</div><div class="v" id="histWxMax">—</div></div>
       </div>
-      <div class="actions"><button class="btn ghost" id="histWxRefresh">重新檢查</button><button class="btn" id="histWxBuild">建立／更新此中心 24 個月</button><button class="btn" id="histWxBuildAll">OP：更新六中心</button></div>
+      <div class="actions"><button class="btn ghost" id="histWxRefresh">重新檢查</button><button class="btn" id="histWxBuild">建立／更新此中心 12 個月</button><button class="btn" id="histWxBuildAll">OP：更新六中心 12 個月</button></div>
       <div id="histWxStatus" class="status">登入後可檢查歷史天氣資料。</div>
       <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>代表區域</th><th>筆數</th><th>最早</th><th>最新</th></tr></thead><tbody id="histWxBody"></tbody></table></div>
     </div>
-    <div class="card"><h2>雨天需求調整邏輯</h2><div class="note">系統以「同 Group × 同星期 × 同時段」比較 DMS 的雨天與非雨天 TC。雨天與非雨天各至少 3 個樣本才啟用；未來預報該時段降雨 ≥0.5 mm 或降雨機率 ≥60% 時才向上套用歷史影響，調整倍率限制在 0.80～1.60。若歷史雨天 TC 較低，不會自動下修需求。</div></div>
+    <div class="card"><h2>雨天需求調整邏輯</h2><div class="note">系統採分層取樣：①同 Group＋同星期＋同30分鐘；不足時 ②同 Group＋同星期＋前後30分鐘；仍不足時 ③同 Group＋同餐期；再不足時 ④同 Group＋平日/假日＋同餐期。每層皆需雨天與非雨天各至少 3 個樣本才啟用；不跨 Group 硬湊樣本。未來預報該時段降雨 ≥0.5 mm 或降雨機率 ≥60% 時才向上套用歷史影響；若仍無足夠樣本則維持原歷史數據預測 TC，只標示天氣風險。</div></div>
   </section>
 </div>
 
@@ -997,6 +997,8 @@ const GROUP_WEATHER={
 };
 const HIST_WX_RAIN_MM=0.5;
 const HIST_WX_MIN_SAMPLES=3;
+const HIST_WX_INITIAL_DAYS=365;
+const HIST_WX_CHUNK_DAYS=90;
 function initHistoricalWeatherUi(){
  const sel=$('histWxCenter'); if(!sel)return;
  sel.innerHTML=''; const allowed=profile?.role==='op_admin'?Object.keys(CENTERS):[profile?.center_id].filter(Boolean);
@@ -1039,29 +1041,50 @@ async function fetchArchiveChunk(name,lat,lon,start,end,group){
 }
 async function buildHistoricalWeatherCenter(center,onProgress=()=>{}){
  if(profile?.role!=='op_admin')throw new Error('只有 OP 管理員可以更新歷史天氣。');
- await cleanupHistoricalWeather();const today=new Date().toISOString().slice(0,10),end=dateAdd(today,-5),start=dateAdd(today,-730),defs=GROUP_WEATHER[center];let done=0,total=Object.keys(defs).length;
+ await cleanupHistoricalWeather();
+ const today=new Date().toISOString().slice(0,10),end=dateAdd(today,-5),start=dateAdd(end,-HIST_WX_INITIAL_DAYS+1),defs=GROUP_WEATHER[center];
+ const existing=await loadHistoricalWeatherRows(center,start,end),have=new Set(existing.map(x=>`${x.group_code}|${x.weather_date}`));
+ let done=0,total=Object.keys(defs).length,written=0,skipped=0;
  for(const [g,v] of Object.entries(defs)){
-  let rows=[];
-  for(let cur=start;cur<=end;){let chunkEnd=dateAdd(cur,179);if(chunkEnd>end)chunkEnd=end;const part=await fetchArchiveChunk(v[0],v[1],v[2],cur,chunkEnd,g);rows.push(...part);cur=dateAdd(chunkEnd,1);}
-  rows.forEach(x=>x.center_id=center);
-  for(let i=0;i<rows.length;i+=100){const {error}=await sb.from('weather_history_daily').upsert(rows.slice(i,i+100),{onConflict:'center_id,group_code,weather_date'});if(error)throw error;}
-  done++;onProgress(`${center} ${g}｜${v[0]} 完成（${done}/${total} Group）`);
+  for(let cur=start;cur<=end;){
+   let chunkEnd=dateAdd(cur,HIST_WX_CHUNK_DAYS-1);if(chunkEnd>end)chunkEnd=end;
+   const missing=[];for(let d=cur;d<=chunkEnd;d=dateAdd(d,1))if(!have.has(`${g}|${d}`))missing.push(d);
+   if(missing.length){
+    onProgress(`${center} ${g}｜${v[0]}｜${cur}～${chunkEnd} 下載中…`);
+    const part=await fetchArchiveChunk(v[0],v[1],v[2],cur,chunkEnd,g);
+    const rows=part.filter(x=>!have.has(`${g}|${x.weather_date}`));rows.forEach(x=>x.center_id=center);
+    for(let i=0;i<rows.length;i+=100){const batch=rows.slice(i,i+100);const {error}=await sb.from('weather_history_daily').upsert(batch,{onConflict:'center_id,group_code,weather_date'});if(error)throw error;written+=batch.length;batch.forEach(x=>have.add(`${g}|${x.weather_date}`));}
+   }else skipped+=missing.length;
+   cur=dateAdd(chunkEnd,1);
+  }
+  done++;onProgress(`${center} ${g}｜${v[0]} 完成（${done}/${total} Group）｜新增 ${written.toLocaleString()} 筆`);
  }
- return {start,end};
+ return {start,end,written,skipped};
 }
+function histMeal(time){const m=tm(time);if(m>=660&&m<810)return'午餐';if(m>=810&&m<1020)return'下午茶';if(m>=1020&&m<1260)return'晚餐';if(m>=1260)return'消夜';return'其他'}
+function histDayType(date){const w=weekday(date);return (w===0||w===6)?'假日':'平日'}
+function rainStats(rows,wxMap,predicate){const rain=[],dry=[];for(const r of rows){if(!predicate(r))continue;const g=r.restaurants?.region_code;if(!g)continue;const time=String(r.bucket_time).slice(0,5),rv=wxMap.get(`${g}|${r.business_date}|${time}`);if(rv==null)continue;(rv>=HIST_WX_RAIN_MM?rain:dry).push(Number(r.tc)||0)}return{rain,dry}}
+function makeRainImpact(z,level,label){if(z.rain.length<HIST_WX_MIN_SAMPLES||z.dry.length<HIST_WX_MIN_SAMPLES)return null;const dry=mean(z.dry),rain=mean(z.rain);if(!(dry>0))return null;return{factor:Math.max(.8,Math.min(1.6,rain/dry)),rainN:z.rain.length,dryN:z.dry.length,rainAvg:rain,dryAvg:dry,level,label}}
 async function buildRainImpact(center,dmsRows,target){
- if(!dmsRows?.length)return new Map();const dates=dmsRows.map(x=>x.business_date).sort(),wx=await loadHistoricalWeatherRows(center,dates[0],dates.at(-1));const wxMap=new Map();
+ if(!dmsRows?.length)return new Map();
+ const dates=dmsRows.map(x=>x.business_date).sort(),wx=await loadHistoricalWeatherRows(center,dates[0],dates.at(-1)),wxMap=new Map();
  for(const d of wx)for(const h of (d.hours||[]))wxMap.set(`${d.group_code}|${d.weather_date}|${h.time}`,Number(h.rain??h.precipitation??0));
- const m=new Map(),wd=weekday(target);
- for(const r of dmsRows){if(weekday(r.business_date)!==wd)continue;const g=r.restaurants?.region_code;if(!g)continue;const time=String(r.bucket_time).slice(0,5),rain=wxMap.get(`${g}|${r.business_date}|${time}`);if(rain==null)continue;const k=`${g}|${time}`,z=m.get(k)||{rain:[],dry:[]};z[rain>=HIST_WX_RAIN_MM?'rain':'dry'].push(Number(r.tc)||0);m.set(k,z);}
- const out=new Map();for(const [k,z] of m){if(z.rain.length>=HIST_WX_MIN_SAMPLES&&z.dry.length>=HIST_WX_MIN_SAMPLES){const dry=mean(z.dry),rain=mean(z.rain);if(dry>0)out.set(k,{factor:Math.max(.8,Math.min(1.6,rain/dry)),rainN:z.rain.length,dryN:z.dry.length,rainAvg:rain,dryAvg:dry});}}
+ const groups=[...new Set(dmsRows.map(r=>r.restaurants?.region_code).filter(Boolean))],times=[...new Set(dmsRows.map(r=>String(r.bucket_time).slice(0,5)).filter(t=>tm(t)>=660))],out=new Map(),targetWd=weekday(target),targetType=histDayType(target);
+ for(const g of groups)for(const time of times){
+  const minute=tm(time),meal=histMeal(time);let im=null;
+  im=makeRainImpact(rainStats(dmsRows,wxMap,r=>r.restaurants?.region_code===g&&weekday(r.business_date)===targetWd&&String(r.bucket_time).slice(0,5)===time),1,'同 Group＋同星期＋同30分鐘');
+  if(!im)im=makeRainImpact(rainStats(dmsRows,wxMap,r=>r.restaurants?.region_code===g&&weekday(r.business_date)===targetWd&&Math.abs(tm(String(r.bucket_time).slice(0,5))-minute)<=30),2,'同 Group＋同星期＋前後30分鐘');
+  if(!im)im=makeRainImpact(rainStats(dmsRows,wxMap,r=>r.restaurants?.region_code===g&&weekday(r.business_date)===targetWd&&histMeal(String(r.bucket_time).slice(0,5))===meal),3,'同 Group＋同星期＋同餐期');
+  if(!im)im=makeRainImpact(rainStats(dmsRows,wxMap,r=>r.restaurants?.region_code===g&&histDayType(r.business_date)===targetType&&histMeal(String(r.bucket_time).slice(0,5))===meal),4,'同 Group＋平日/假日＋同餐期');
+  if(im)out.set(`${g}|${time}`,im);
+ }
  return out;
 }
 async function applyHistoricalWeatherToForecast(center,target,hist,fc){
  try{
   const [impact,fwx]=await Promise.all([buildRainImpact(center,hist,target),loadWeather(center,target)]);let adjusted=0;
   for(const x of fc.pred){const w=(fwx.groups?.[x.group]?.rows||[]).find(r=>r.time===String(x.time).slice(0,5));const im=impact.get(`${x.group}|${String(x.time).slice(0,5)}`);if(!w||!im)continue;
-   if(w.rain>=HIST_WX_RAIN_MM||w.pop>=60){const histFactor=Math.max(1,im.factor),weight=Math.max(.35,Math.min(1,Math.max(w.pop/100,w.rain>=2.5?1:w.rain/HIST_WX_RAIN_MM*.5))),factor=1+(histFactor-1)*weight;if(factor>1.001){x.weatherBaseTc=x.tc;x.weatherFactor=factor;x.tc*=factor;x.own*=factor;x.third*=factor;x.weatherReason=`雨天歷史 ${im.rainN} 筆 vs 非雨天 ${im.dryN} 筆`;adjusted++;}}
+   if(w.rain>=HIST_WX_RAIN_MM||w.pop>=60){const histFactor=Math.max(1,im.factor),weight=Math.max(.35,Math.min(1,Math.max(w.pop/100,w.rain>=2.5?1:w.rain/HIST_WX_RAIN_MM*.5))),factor=1+(histFactor-1)*weight;if(factor>1.001){x.weatherBaseTc=x.tc;x.weatherFactor=factor;x.tc*=factor;x.own*=factor;x.third*=factor;x.weatherReason=`${im.label}｜雨天 ${im.rainN} 筆 vs 非雨天 ${im.dryN} 筆`;x.weatherSampleLevel=im.level;adjusted++;}}
   }
   fc.weatherAdjusted=adjusted;return fc;
  }catch(e){console.warn('historical weather adjustment skipped',e);fc.weatherAdjusted=0;return fc}
@@ -1406,8 +1429,8 @@ function suggestedThirdParty(total,own){
 
 if($('histWxCenter'))$('histWxCenter').onchange=refreshHistoricalWeatherStatus;
 if($('histWxRefresh'))$('histWxRefresh').onclick=refreshHistoricalWeatherStatus;
-if($('histWxBuild'))$('histWxBuild').onclick=async()=>{const c=$('histWxCenter').value,b=$('histWxBuild');b.disabled=true;try{status($('histWxStatus'),`${c} 開始建立近 24 個月歷史天氣…`);const r=await buildHistoricalWeatherCenter(c,m=>status($('histWxStatus'),m));status($('histWxStatus'),`${c} 完成：${r.start}～${r.end}。`,'ok');await refreshHistoricalWeatherStatus()}catch(e){status($('histWxStatus'),'建立失敗：'+(e.message||e),'bad')}finally{b.disabled=false}};
-if($('histWxBuildAll'))$('histWxBuildAll').onclick=async()=>{const b=$('histWxBuildAll');b.disabled=true;try{for(const c of Object.keys(CENTERS)){status($('histWxStatus'),`六中心更新中：${c}…`);await buildHistoricalWeatherCenter(c,m=>status($('histWxStatus'),m));}status($('histWxStatus'),'六中心近 24 個月歷史天氣更新完成。','ok');await refreshHistoricalWeatherStatus()}catch(e){status($('histWxStatus'),'更新失敗：'+(e.message||e),'bad')}finally{b.disabled=false}};
+if($('histWxBuild'))$('histWxBuild').onclick=async()=>{const c=$('histWxCenter').value,b=$('histWxBuild');b.disabled=true;try{status($('histWxStatus'),`${c} 開始建立近 12 個月歷史天氣（分批、可續傳）…`);const r=await buildHistoricalWeatherCenter(c,m=>status($('histWxStatus'),m));status($('histWxStatus'),`${c} 完成：${r.start}～${r.end}。`,'ok');await refreshHistoricalWeatherStatus()}catch(e){status($('histWxStatus'),'建立失敗：'+(e.message||e),'bad')}finally{b.disabled=false}};
+if($('histWxBuildAll'))$('histWxBuildAll').onclick=async()=>{const b=$('histWxBuildAll');b.disabled=true;try{for(const c of Object.keys(CENTERS)){status($('histWxStatus'),`六中心更新中：${c}…`);await buildHistoricalWeatherCenter(c,m=>status($('histWxStatus'),m));}status($('histWxStatus'),'六中心近 12 個月歷史天氣更新完成；後續持續累積，最多保存 24 個月。','ok');await refreshHistoricalWeatherStatus()}catch(e){status($('histWxStatus'),'更新失敗：'+(e.message||e),'bad')}finally{b.disabled=false}};
 restore();
 </script>
 </body></html>
