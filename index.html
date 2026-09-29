@@ -998,7 +998,7 @@ const GROUP_WEATHER={
 const HIST_WX_RAIN_MM=0.5;
 const HIST_WX_MIN_SAMPLES=3;
 const HIST_WX_INITIAL_DAYS=365;
-const HIST_WX_CHUNK_DAYS=90;
+const HIST_WX_CHUNK_DAYS=30;
 function initHistoricalWeatherUi(){
  const sel=$('histWxCenter'); if(!sel)return;
  sel.innerHTML=''; const allowed=profile?.role==='op_admin'?Object.keys(CENTERS):[profile?.center_id].filter(Boolean);
@@ -1041,20 +1041,30 @@ async function fetchArchiveChunk(name,lat,lon,start,end,group){
 }
 async function buildHistoricalWeatherCenter(center,onProgress=()=>{}){
  if(profile?.role!=='op_admin')throw new Error('只有 OP 管理員可以更新歷史天氣。');
- await cleanupHistoricalWeather();
- const today=new Date().toISOString().slice(0,10),end=dateAdd(today,-5),start=dateAdd(end,-HIST_WX_INITIAL_DAYS+1),defs=GROUP_WEATHER[center];
- const existing=await loadHistoricalWeatherRows(center,start,end),have=new Set(existing.map(x=>`${x.group_code}|${x.weather_date}`));
+ const defs=GROUP_WEATHER[center];
+ if(!defs)throw new Error(`找不到 ${center} 的 Group 天氣設定`);
+ try{await cleanupHistoricalWeather()}catch(e){throw new Error(`清理舊資料失敗：${e.message||e}`)}
+ const today=new Date().toISOString().slice(0,10),end=dateAdd(today,-5),start=dateAdd(end,-HIST_WX_INITIAL_DAYS+1);
+ let existing=[];
+ try{existing=await loadHistoricalWeatherRows(center,start,end)}catch(e){throw new Error(`讀取既有資料失敗：${e.message||e}`)}
+ const have=new Set((existing||[]).map(x=>`${x.group_code}|${x.weather_date}`));
  let done=0,total=Object.keys(defs).length,written=0,skipped=0;
  for(const [g,v] of Object.entries(defs)){
   for(let cur=start;cur<=end;){
    let chunkEnd=dateAdd(cur,HIST_WX_CHUNK_DAYS-1);if(chunkEnd>end)chunkEnd=end;
-   const missing=[];for(let d=cur;d<=chunkEnd;d=dateAdd(d,1))if(!have.has(`${g}|${d}`))missing.push(d);
-   if(missing.length){
+   let need=false,dayCount=0;
+   for(let d=cur;d<=chunkEnd;d=dateAdd(d,1)){dayCount++;if(!have.has(`${g}|${d}`))need=true;if(dayCount>40)throw new Error(`${g} 日期區間異常：${cur}～${chunkEnd}`)}
+   if(need){
     onProgress(`${center} ${g}｜${v[0]}｜${cur}～${chunkEnd} 下載中…`);
-    const part=await fetchArchiveChunk(v[0],v[1],v[2],cur,chunkEnd,g);
-    const rows=part.filter(x=>!have.has(`${g}|${x.weather_date}`));rows.forEach(x=>x.center_id=center);
-    for(let i=0;i<rows.length;i+=100){const batch=rows.slice(i,i+100);const {error}=await sb.from('weather_history_daily').upsert(batch,{onConflict:'center_id,group_code,weather_date'});if(error)throw error;written+=batch.length;batch.forEach(x=>have.add(`${g}|${x.weather_date}`));}
-   }else skipped+=missing.length;
+    let part;
+    try{part=await fetchArchiveChunk(v[0],v[1],v[2],cur,chunkEnd,g)}catch(e){throw new Error(`${g} ${cur}～${chunkEnd} 下載失敗：${e.message||e}`)}
+    const rows=(part||[]).filter(x=>!have.has(`${g}|${x.weather_date}`));rows.forEach(x=>x.center_id=center);
+    for(let i=0;i<rows.length;i+=50){
+     const batch=rows.slice(i,i+50);
+     try{const {error}=await sb.from('weather_history_daily').upsert(batch,{onConflict:'center_id,group_code,weather_date'});if(error)throw error}catch(e){throw new Error(`${g} ${cur}～${chunkEnd} 寫入失敗：${e.message||e}`)}
+     written+=batch.length;batch.forEach(x=>have.add(`${g}|${x.weather_date}`));
+    }
+   }else skipped+=dayCount;
    cur=dateAdd(chunkEnd,1);
   }
   done++;onProgress(`${center} ${g}｜${v[0]} 完成（${done}/${total} Group）｜新增 ${written.toLocaleString()} 筆`);
