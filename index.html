@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Delivery 班表｜營運決策支援系統</title>
+<title>Delivery OP｜營運決策支援系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -375,7 +375,7 @@ function timeStr(hours){
 function displayTime(t){
  if(!t)return ''; let [h,m]=t.split(':').map(Number); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
-function dateAdd(d,n){let x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)}
+function dateAdd(d,n){const [y,m,day]=String(d).split('-').map(Number);const x=new Date(Date.UTC(y,m-1,day));x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10)}
 function fmtDate(d){if(!d)return '—';let x=new Date(d+'T00:00:00');return `${x.getMonth()+1}/${x.getDate()}`}
 function colToNum(s){let n=0;for(const c of s)n=n*26+c.charCodeAt(0)-64;return n}
 
