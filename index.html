@@ -65,7 +65,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
 </div>
 
 <div id="appHeader" class="apphead hidden"><div class="inner">
-<div class="brand"><b id="headerCenter">Delivery OP｜營運決策支援系統</b><span>KFC 公版班表 × DMS 需求預測 × Group 天氣 × 營運策略</span></div>
+<div class="brand"><b id="headerCenter">Delivery OP｜營運決策支援系統</b><span>KFC 公版班表 × 歷史數據預測 × Group 天氣 × 營運策略</span></div>
 <div class="headright"><div class="pill">年度整日 OWN TPLH 目標 2.00　｜　第三方 ≤25%</div><span id="headerRole" class="pill"></span><select id="headerCenterSelect"></select><button class="btn ghost" id="headerLogout">登出</button></div>
 </div></div>
 <div id="appView" class="wrap hidden">
@@ -73,7 +73,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
     <div><h1 id="welcome">Delivery OP</h1><div id="account" class="muted"></div></div>
     <div class="centerbar"><span id="roleBadge" class="role"></span><select id="centerSelect"></select><button class="btn ghost" id="logoutBtn">登出</button></div>
   </div>
-  <div class="refbanner"><b>系統說明：</b>整合班表 TC、DMS 需求預測、配送人力、Group 天氣與營運策略，協助外送中心進行每日人力與營運規劃。</div>
+  <div class="refbanner"><b>系統說明：</b>整合班表上傳 TC、歷史數據預測、配送人力、Group 天氣與營運策略，協助外送中心進行每日人力與營運規劃。</div>
   <div class="nav">
     <button class="active" data-page="schedule">一週班表</button>
     <button data-page="demand">TC需求預測</button>
@@ -81,21 +81,22 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
     <button data-page="import">班表匯入</button>
     <button id="dmsNav" data-page="dms">DMS匯入</button>
     <button data-page="promo">促銷／颱風標記</button>
+    <button id="histWxNav" data-page="histwx">歷史天氣</button>
   </div>
   <div id="forecastDateBar" class="forecast-datebar"><b>目前預測日期</b><span class="date" id="currentForecastDate">—</span><span id="currentForecastDow"></span><span class="muted">TC預測、班表分析、Group天氣與營運策略皆以此日期為準</span></div>
 
   <section id="schedule" class="page active">
     <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-      <div class="card kpi"><div class="l">班表 TC</div><div class="v" id="kScheduleTc">—</div><div class="small muted">KFC 公版預估 TC</div></div>
-      <div class="card kpi"><div class="l">系統預測 TC</div><div class="v" id="kSystemTc">—</div><div class="small muted" id="kTcDiff">與班表 TC 比較</div></div>
+      <div class="card kpi"><div class="l">班表上傳 TC</div><div class="v" id="kScheduleTc">—</div><div class="small muted">KFC 公版預估 TC</div></div>
+      <div class="card kpi"><div class="l">歷史數據預測 TC</div><div class="v" id="kSystemTc">—</div><div class="small muted" id="kTcDiff">與班表上傳 TC 比較</div></div>
       <div class="card kpi"><div class="l">OWN 建議承接 TC</div><div class="v" id="kSystemOwn">—</div><div class="small muted">有當日班表才計算；無班表顯示 —</div></div>
       <div class="card kpi"><div class="l">預估 OWN TPLH</div><div class="v" id="kPlanTplh">—</div><div class="small muted">年度目標 2.00</div></div>
     </div>
     <div class="card">
-      <div class="kfc-meta"><div><div class="kfc-title" id="scheduleTitle">中心合併班表</div><div class="kfc-sub">KFC 公版格式｜橘色＝班表 TC；藍色＝系統預測 TC；綠色＝可配送人力</div></div>
+      <div class="kfc-meta"><div><div class="kfc-title" id="scheduleTitle">中心合併班表</div><div class="kfc-sub">KFC 公版格式｜橘色＝班表上傳 TC；藍色＝歷史數據預測 TC；綠色＝可配送人力</div></div>
       <div class="actions"><button class="btn ghost" id="refreshSchedule">重新整理</button><button class="btn ghost" id="exportDayPublicBtn">匯出單日 KFC 公版</button><button class="btn ghost" id="exportWeekPublicBtn">匯出整週 Excel</button></div></div>
       <div class="status" id="scheduleOpsSummary" style="background:#f8fafc;border-color:#e5e7eb;color:#475467;margin:10px 0">排班外送員工時與關注時段會依當日班表分析更新。</div>
-<div id="dayTabs" class="daytabs"></div><div class="legend" style="display:flex;gap:12px;font-size:12px;color:#667085;margin:8px 0"><span><i style="display:inline-block;width:10px;height:10px;background:#eef4ff;margin-right:4px"></i>外送員班段</span><span><i style="display:inline-block;width:10px;height:10px;background:#fff4ed;margin-right:4px"></i>值班主管（不計配送人力）</span></div><div class="status" style="margin-bottom:10px"><b>資料來源：</b>班表 TC 取自上傳 KFC 公版「預估 TC」列；系統預測 TC 取自 Supabase DMS 歷史資料。兩者不互相覆蓋。</div>
+<div id="dayTabs" class="daytabs"></div><div class="legend" style="display:flex;gap:12px;font-size:12px;color:#667085;margin:8px 0"><span><i style="display:inline-block;width:10px;height:10px;background:#eef4ff;margin-right:4px"></i>外送員班段</span><span><i style="display:inline-block;width:10px;height:10px;background:#fff4ed;margin-right:4px"></i>值班主管（不計配送人力）</span></div><div class="status" style="margin-bottom:10px"><b>資料來源：</b>班表上傳 TC 取自上傳 KFC 公版「預估 TC」列；歷史數據預測 TC 取自 Supabase DMS 歷史資料。兩者不互相覆蓋。</div>
       <div id="scheduleEmpty" class="status">目前中心尚無班表資料。</div>
       <div id="stairWrap" class="stair hidden"></div>
     </div>
@@ -140,7 +141,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
         <div class="kpi"><div class="l">班別</div><div class="v" id="pCount">0</div></div>
       </div>
       <div id="validation" class="status"></div><div id="coveragePreview" class="status"></div>
-      <div class="status" style="margin-bottom:12px"><b>班表資料：</b>日期／Group／姓名／上班／下班／休息／角色。匯出 Excel 會保持這些欄位；「系統預測 TC」與「班表 TC」會在分析資料中分開標示。</div><div class="tablewrap"><table class="tbl"><thead><tr><th>日期</th><th>區域</th><th>姓名</th><th>開始</th><th>結束</th><th>休息</th><th>角色</th><th>來源</th></tr></thead><tbody id="previewBody"></tbody></table></div>
+      <div class="status" style="margin-bottom:12px"><b>班表資料：</b>日期／Group／姓名／上班／下班／休息／角色。匯出 Excel 會保持這些欄位；「歷史數據預測 TC」與「班表上傳 TC」會在分析資料中分開標示。</div><div class="tablewrap"><table class="tbl"><thead><tr><th>日期</th><th>區域</th><th>姓名</th><th>開始</th><th>結束</th><th>休息</th><th>角色</th><th>來源</th></tr></thead><tbody id="previewBody"></tbody></table></div>
       <div class="actions">
         <button class="btn" id="saveBtn">確認並寫入 Supabase</button><button class="btn ghost" id="scheduleDbTestBtn" type="button">測試班表資料庫連線</button>
         <button class="btn danger" id="clearCurrentBtn">清除目前中心班表</button><button class="btn ghost" id="exportScheduleBtn" type="button">匯出班表 Excel</button><button class="btn ghost" id="exportScheduleAnalysisBtn" type="button">匯出班表＋分析 Excel</button>
@@ -207,8 +208,8 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="card">
         <h2 id="fcTitle">預測摘要</h2>
         <div class="grid">
-          <div class="kpi"><div class="l">系統預測 TC</div><div class="v" id="fcTc">—</div><div class="small muted" id="fcTcNote"></div></div>
-          <div class="kpi"><div class="l">系統OWN 建議承接 TC</div><div class="v" id="fcOwn">—</div><div class="small muted">供後續人力需求計算</div></div>
+          <div class="kpi"><div class="l">歷史數據預測 TC</div><div class="v" id="fcTc">—</div><div class="small muted" id="fcTcNote"></div></div>
+          <div class="kpi"><div class="l">OWN 建議承接 TC</div><div class="v" id="fcOwn">—</div><div class="small muted">供後續人力需求計算</div></div>
           <div class="kpi"><div class="l">歷史參考日</div><div class="v" id="fcRefs">—</div><div class="small muted" id="fcRefDates"></div></div>
           <div class="kpi"><div class="l">信心</div><div class="v" id="fcConf">—</div><div class="small muted" id="fcConfNote"></div></div>
         </div>
@@ -216,17 +217,17 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="card">
         <h2>Group × 30分鐘系統預測</h2>
         <div class="muted">點 Group 可查看餐廳來源與每個30分鐘的歷史參考值。</div>
-        <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>歷史平均第三方（僅參考）%</th><th>參考樣本</th><th></th></tr></thead><tbody id="fcGroupBody"></tbody></table></div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>歷史數據預測 TC</th><th>班表上傳 TC</th><th>可配送 Rider 工時</th><th>OWN 建議承接 TC</th><th>建議第三方 TC</th><th>判斷原因</th><th>歷史平均第三方（僅參考）%</th><th>參考樣本</th><th></th></tr></thead><tbody id="fcGroupBody"></tbody></table></div>
       </div>
       <div class="card">
-        <h2>時段需求分布</h2><div class="status" style="background:#eef4ff;border-color:#b2ccff;color:#1849a9"><b>欄位說明：</b>「預測總 TC」＝系統預測全部外送訂單；「OWN 建議承接 TC」＝依當日班表可配送人力估算；「第三方建議 TC」＝總需求扣除 OWN 建議承接。歷史第三方%只作參考，不再用來拆未來 OWN。</div>
+        <h2>時段需求分布</h2><div class="status" style="background:#eef4ff;border-color:#b2ccff;color:#1849a9"><b>欄位說明：</b>「歷史數據預測總 TC」＝系統預測全部外送訂單；「OWN 建議承接 TC」＝依當日 11:00 後可配送 Rider 工時 × 全日 OWN TPLH 2.0 估算 Group 全日運能，再按各30分鐘需求占比分配；「第三方建議 TC」＝總需求扣除 OWN 建議承接。歷史第三方%只作參考，不再用來拆未來 OWN。</div>
         <div class="muted">依預測落單時間彙總；可先看午餐、下午餐、晚餐、消夜的需求集中程度。</div>
-        <div class="tablewrap"><table class="tbl"><thead><tr><th>時段</th><th>時間</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>TC占比</th><th>歷史第三方%（僅參考）</th></tr></thead><tbody id="fcPeriodBody"></tbody></table></div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>時段</th><th>時間</th><th>歷史數據預測 TC</th><th>OWN 建議承接</th><th>TC占比</th><th>歷史第三方%（僅參考）</th></tr></thead><tbody id="fcPeriodBody"></tbody></table></div>
       </div>
       <div class="card">
         <h2>需求高峰 TOP 10</h2>
         <div class="muted">找出「Group × 30分鐘」需求高峰；OWN 建議承接依當日班表能力估算，剩餘需求才是第三方建議量。</div>
-        <div class="tablewrap"><table class="tbl"><thead><tr><th>排名</th><th>時間</th><th>Group</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>第三方建議</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="fcPeakBody"></tbody></table></div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>排名</th><th>時間</th><th>Group</th><th>歷史數據預測 TC</th><th>OWN 建議承接</th><th>第三方建議</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="fcPeakBody"></tbody></table></div>
       </div>
       <div id="fcCompare" class="card hidden"></div>
       <div id="fcDetail" class="card hidden"></div>
@@ -235,7 +236,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
   <section id="analysis" class="page">
     <div class="card">
       <h2>班表 × TC需求分析</h2>
-      <div class="muted">把 Supabase 的班表與 DMS 基準預測接在一起。值班主管不列入可配送人力；目前人力需求先用「歷史 OWN TC ÷ 歷史實際外送員工時」估算 Group × 30分鐘的實際生產力，再套用到OWN 建議承接 TC。</div>
+      <div class="muted">把 Supabase 的班表與 歷史數據基準預測接在一起。值班主管不列入可配送人力；目前人力需求先用「歷史 OWN TC ÷ 歷史實際外送員工時」估算 Group × 30分鐘的實際生產力，再套用到OWN 建議承接 TC。</div>
       <div class="grid" style="margin-top:14px">
         <label>中心<select id="anCenter"></select></label>
         <label>分析日期<input id="anDate" type="date"></label>
@@ -248,7 +249,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="card">
         <h2 id="anTitle">分析摘要</h2>
         <div class="grid">
-          <div class="kpi"><div class="l">系統OWN 建議承接 TC</div><div class="v" id="anOwn">—</div><div class="small muted">落單時間需求</div></div>
+          <div class="kpi"><div class="l">OWN 建議承接 TC</div><div class="v" id="anOwn">—</div><div class="small muted">落單時間需求</div></div>
           <div class="kpi"><div class="l">排班外送員工時</div><div class="v" id="anHours">—</div><div class="small muted">已扣值班主管</div></div>
           <div class="kpi"><div class="l">全日預估 TPLH</div><div class="v" id="anTplh">—</div><div class="small muted">OWN 建議承接 TC ÷ 外送員工時</div></div>
           <div class="kpi"><div class="l">需關注時段</div><div class="v" id="anAlerts">—</div><div class="small muted">Group × 30分鐘</div></div>
@@ -256,12 +257,12 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       </div>
       <div class="card">
         <h2>Group 人力摘要</h2>
-        <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>系統OWN 建議承接 TC</th><th>排班工時</th><th>全日 TPLH</th><th>不足時段</th><th>偏緊時段</th><th></th></tr></thead><tbody id="anGroupBody"></tbody></table></div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>OWN 建議承接 TC</th><th>排班工時</th><th>全日 TPLH</th><th>不足時段</th><th>偏緊時段</th><th></th></tr></thead><tbody id="anGroupBody"></tbody></table></div>
       </div>
       <div class="card">
         <h2>優先處理時段</h2>
         <div class="muted">先列人力不足，再列人力偏緊；連續30分鐘時段會合併成一個事件。</div>
-        <div class="tablewrap"><table class="tbl"><thead><tr><th>狀態</th><th>Group</th><th>時間</th><th>系統OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>缺口</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="anAlertBody"></tbody></table></div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>狀態</th><th>Group</th><th>時間</th><th>OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>缺口</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="anAlertBody"></tbody></table></div>
       </div>
       <div class="card">
         <h2>天氣預測</h2>
@@ -318,6 +319,29 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="tablewrap"><table class="tbl"><thead><tr><th>類型</th><th>名稱</th><th>日期</th><th>範圍</th><th>時段／影響</th><th>備註</th><th></th></tr></thead><tbody id="eventBody"></tbody></table></div>
     </div>
   </section>
+
+  <section id="histwx" class="page">
+    <div class="grid">
+      <div class="card kpi"><div class="l">保存期間</div><div class="v">24 個月</div><div class="small muted">超過 24 個月自動清除</div></div>
+      <div class="card kpi"><div class="l">雨天判定</div><div class="v">≥0.5 mm</div><div class="small muted">逐小時降雨量</div></div>
+      <div class="card kpi"><div class="l">分析起點</div><div class="v">11:00</div><div class="small muted">與 DMS 分析規則一致</div></div>
+      <div class="card kpi"><div class="l">Group</div><div class="v">50</div><div class="small muted">依六中心實際 Group</div></div>
+    </div>
+    <div class="card">
+      <h2>歷史天氣資料庫</h2>
+      <p class="note">使用各 Group 的天氣代表位置，從 Open-Meteo Archive 取得逐小時降雨、天氣代碼與風速。資料只用於需求預測與營運分析，不代表單一餐廳的精確天氣。</p>
+      <div class="grid" style="grid-template-columns:220px 1fr 1fr 1fr">
+        <div><label>中心</label><select id="histWxCenter" style="width:100%"></select></div>
+        <div class="kpi"><div class="l">資料筆數</div><div class="v" id="histWxRows">—</div><div class="small muted">每日 × Group</div></div>
+        <div class="kpi"><div class="l">最早日期</div><div class="v" id="histWxMin">—</div></div>
+        <div class="kpi"><div class="l">最新日期</div><div class="v" id="histWxMax">—</div></div>
+      </div>
+      <div class="actions"><button class="btn ghost" id="histWxRefresh">重新檢查</button><button class="btn" id="histWxBuild">建立／更新此中心 24 個月</button><button class="btn" id="histWxBuildAll">OP：更新六中心</button></div>
+      <div id="histWxStatus" class="status">登入後可檢查歷史天氣資料。</div>
+      <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>代表區域</th><th>筆數</th><th>最早</th><th>最新</th></tr></thead><tbody id="histWxBody"></tbody></table></div>
+    </div>
+    <div class="card"><h2>雨天需求調整邏輯</h2><div class="note">系統以「同 Group × 同星期 × 同時段」比較 DMS 的雨天與非雨天 TC。雨天與非雨天各至少 3 個樣本才啟用；未來預報該時段降雨 ≥0.5 mm 或降雨機率 ≥60% 時才向上套用歷史影響，調整倍率限制在 0.80～1.60。若歷史雨天 TC 較低，不會自動下修需求。</div></div>
+  </section>
 </div>
 
 <script>
@@ -365,6 +389,8 @@ async function loadProfile(sess){
  $('welcome').textContent=(data.display_name||'使用者')+'，您好';$('account').textContent=sess.user.email;
  $('roleBadge').textContent=data.role==='op_admin'?'OP 管理員':'中心帳號';
  $('dmsNav').classList.toggle('hidden',data.role!=='op_admin');
+ $('histWxNav')?.classList.toggle('hidden',data.role!=='op_admin');
+ initHistoricalWeatherUi();
  const fcc=$('fcCenter'); if(fcc){fcc.innerHTML=''; const cs=data.role==='op_admin'?['I997','I994','I995','I996','I998','I981']:[data.center_id]; cs.filter(Boolean).forEach(c=>{let o=document.createElement('option');o.value=c;o.textContent=c;fcc.appendChild(o)}); if(activeCenter&&cs.includes(activeCenter))fcc.value=activeCenter;}
  if(data.role==='op_admin')setTimeout(loadDmsDbStatus,0);
  const anc=$('anCenter');if(anc){anc.innerHTML='';const acs=data.role==='op_admin'?['I997','I994','I995','I996','I998','I981']:[data.center_id];acs.filter(Boolean).forEach(c=>{let o=document.createElement('option');o.value=c;o.textContent=c;anc.appendChild(o)});if(activeCenter&&acs.includes(activeCenter))anc.value=activeCenter;}
@@ -563,24 +589,47 @@ async function loadSchedule(){
  const dates=[...new Set([...currentShifts.map(x=>x.work_date),...window.currentCoverage.map(x=>x.work_date)])].sort();selectedDate=selectedDate&&dates.includes(selectedDate)?selectedDate:(dates[0]||null);renderDayTabs(dates);await renderStair();
 }
 function renderDayTabs(dates){const box=$('dayTabs');box.innerHTML='';dates.forEach(d=>{let b=document.createElement('button'),dt=new Date(d+'T12:00:00'),zh=['日','一','二','三','四','五','六'];b.textContent=`${zh[dt.getDay()]} ${fmtDate(d)}`;if(d===selectedDate)b.classList.add('active');b.onclick=async()=>{selectedDate=d;renderDayTabs(dates);await renderStair()};box.appendChild(b)})}
+const OWN_DAILY_TPLH_TARGET=2.0;
+function operationalRiderHours(rows){
+ // 只計 11:00 後可用外送員工時；值班主管不計配送人力。
+ let slots=0;
+ for(const r of rows.filter(x=>x.role!=='duty_manager')){
+   for(let m=660;m<1620;m+=30){const t=`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;if(slotActive(r,t))slots++;}
+ }
+ return slots*.5;
+}
+function scheduleTcForGroup(date,group){
+ return (window.currentCoverage||[]).filter(x=>x.work_date===date&&x.region_code===group).reduce((p,x)=>p+Number(x.schedule_tc_total||0),0);
+}
+function groupOwnPlan(pred,center,date,group){
+ const items=pred.filter(x=>x.group===group),total=items.reduce((p,x)=>p+Number(x.tc||0),0);
+ const rs=(currentShifts||[]).filter(x=>x.work_date===date&&x.region_code===group);
+ if(!rs.length)return {hours:0,capacity:0,own:0,third:total,reason:'未上傳此 Group 班表，無法配置 OWN 承接'};
+ const hours=operationalRiderHours(rs),capacity=hours*OWN_DAILY_TPLH_TARGET,own=Math.min(total,capacity),third=Math.max(0,total-own);
+ let reason=capacity>=total?'班表運能可承接預測需求':'依 11:00 後 Rider 工時 × 全日 OWN TPLH 2.0，超出運能部分建議第三方';
+ return {hours,capacity,own,third,reason};
+}
+function applyOwnPlanToForecast(pred,center,date){
+ const groups=[...new Set(pred.map(x=>x.group))];
+ for(const g of groups){
+   const plan=groupOwnPlan(pred,center,date,g),items=pred.filter(x=>x.group===g),total=items.reduce((p,x)=>p+Number(x.tc||0),0);
+   for(const x of items){const share=total?Number(x.tc||0)/total:0;x.recommendedOwn=plan.own*share;x.recommendedThird=plan.third*share;x.ownPlan=plan;}
+ }
+}
 function forecastSuggestedOwn(totalTc,center,date,time,group=null){
- const rs=(currentShifts||[]).filter(x=>x.work_date===date&&(!group||x.region_code===group));
- if(!rs.length)return null;
- return suggestedOwnForSlot(totalTc,rs,time);
+ if(fcData&&group){const x=fcData.pred.find(z=>z.group===group&&z.time===time);if(x&&x.recommendedOwn!=null)return x.recommendedOwn;}
+ return null;
 }
 function suggestedOwnForSlot(totalTc,rows,time){
- const riders=rows.filter(x=>x.role!=='duty_manager'&&slotActive(x,time)).length;
- // 暫用班表可配送人數作為30分鐘承接上限；不再使用歷史第三方比例拆 OWN。
- // 後續由歷史實際配送效率模型取代此上限。
- return Math.min(Number(totalTc||0),riders);
+ // 班表頁若尚未產生預測明細，只顯示可由完整預測模型計算的值，不再用「Rider人數=30分鐘TC上限」簡化。
+ return null;
 }
 function slotActive(x,t){let [hh,mm]=t.split(':').map(Number),q=hh+mm/60,[sh,sm]=x.start_time.split(':').map(Number),[eh,em]=x.end_time.split(':').map(Number),st=sh+sm/60,en=eh+em/60;if(en<=st)en+=24;if(q<st&&en>24)q+=24;return q>=st&&q<en}
 async function publicDayMetrics(rows){
  const cov=(window.currentCoverage||[]).filter(x=>x.work_date===selectedDate),tc30={};let scheduleTc=0;
  for(const c of cov){scheduleTc+=Number(c.schedule_tc_total||0);for(const [t,v] of Object.entries(c.schedule_tc_30m||{}))tc30[t]=(tc30[t]||0)+Number(v||0)}
- let fc=null;try{const hist=await loadForecastHistory(activeCenter,selectedDate,730);if(hist.length)fc=buildForecast(hist,selectedDate)}catch(e){}
- const sys30={},own30={};if(fc)for(const x of fc.pred){let t=x.time.slice(0,5);if(opMinute(t)<660)continue;sys30[t]=(sys30[t]||0)+x.tc}
- for(const [t,v] of Object.entries(sys30))own30[t]=suggestedOwnForSlot(v,rows,t);
+ let fc=null;try{const hist=await loadForecastHistory(activeCenter,selectedDate,730);if(hist.length){fc=buildForecast(hist,selectedDate);await applyHistoricalWeatherToForecast(activeCenter,selectedDate,hist,fc)}}catch(e){}
+ const sys30={},own30={};if(fc){applyOwnPlanToForecast(fc.pred,activeCenter,selectedDate);for(const x of fc.pred){let t=x.time.slice(0,5);if(opMinute(t)<660)continue;sys30[t]=(sys30[t]||0)+x.tc;own30[t]=(own30[t]||0)+Number(x.recommendedOwn||0)}}
  const riderRows=rows.filter(x=>x.role!=='duty_manager'),hours=riderRows.reduce((p,x)=>p+shiftHours(x),0),sys=Object.values(sys30).reduce((a,b)=>a+b,0),own=Object.values(own30).reduce((a,b)=>a+b,0);
  return {tc30,scheduleTc,sys30,own30,sys,own,hours};
 }
@@ -588,12 +637,12 @@ async function renderStair(){
  setCurrentForecastDate(selectedDate); const rows=currentShifts.filter(x=>x.work_date===selectedDate);if(!rows.length){$('scheduleEmpty').classList.remove('hidden');$('stairWrap').classList.add('hidden');return}
  $('scheduleEmpty').classList.add('hidden');$('stairWrap').classList.remove('hidden');const m=await publicDayMetrics(rows),times=[];for(let h=6;h<27;h+=.5)times.push(`${String(Math.floor(h)%24).padStart(2,'0')}:${h%1?'30':'00'}`);
  $('scheduleTitle').textContent=`${activeCenter} ${CENTERS[activeCenter]||''}｜${selectedDate} 服務組班表`;$('kScheduleTc').textContent=m.scheduleTc?Math.round(m.scheduleTc).toLocaleString():'—';$('kSystemTc').textContent=m.sys?Math.round(m.sys).toLocaleString():'—';$('kSystemOwn').textContent=m.own?Math.round(m.own).toLocaleString():'—';$('kPlanTplh').textContent=m.hours&&m.own?(m.own/m.hours).toFixed(2):'—';
- if(m.scheduleTc&&m.sys){let d=m.sys-m.scheduleTc;$('kTcDiff').textContent=`較班表 TC ${d>=0?'+':''}${Math.round(d)}（${d>=0?'+':''}${(d/m.scheduleTc*100).toFixed(1)}%）`}else $('kTcDiff').textContent='DMS 歷史總需求模型';
+ if(m.scheduleTc&&m.sys){let d=m.sys-m.scheduleTc;$('kTcDiff').textContent=`較班表上傳 TC ${d>=0?'+':''}${Math.round(d)}（${d>=0?'+':''}${(d/m.scheduleTc*100).toFixed(1)}%）`}else $('kTcDiff').textContent='DMS 歷史總需求模型';
  const dayAlerts=(anData&&anData.center===activeCenter&&anData.date===selectedDate)?anData.alerts.filter(x=>x.status==='人力不足'||x.status==='人力偏緊').length:null;
  if($('scheduleOpsSummary')) $('scheduleOpsSummary').innerHTML=`<b>排班外送員工時：</b>${m.hours?round1(m.hours)+' h':'—'}　｜　<b>需關注時段：</b>${dayAlerts==null?'請先執行班表分析':dayAlerts+' 個'}　｜　<b>值班主管：</b>不計配送人力`;
  
  let h='<table id="publicScheduleTable"><thead><tr><th colspan="3">服務組班表</th>'+times.map((t,i)=>`<th>${i%2===0?t.slice(0,2):''}</th>`).join('')+'</tr><tr><th>Group</th><th>姓名</th><th>角色</th>'+times.map(t=>`<th>${t.slice(3)}</th>`).join('')+'</tr></thead><tbody>';
- const metric=(cls,label,obj)=>{h+=`<tr class="metric ${cls}"><td colspan="3">${label}</td>`+times.map(t=>`<td>${obj[t]?round1(obj[t]):''}</td>`).join('')+'</tr>'};metric('schedule-tc','班表 TC',m.tc30);metric('system-tc','系統預測 TC',m.sys30);metric('system-tc','OWN 建議承接 TC',m.own30);
+ const metric=(cls,label,obj)=>{h+=`<tr class="metric ${cls}"><td colspan="3">${label}</td>`+times.map(t=>`<td>${obj[t]?round1(obj[t]):''}</td>`).join('')+'</tr>'};metric('schedule-tc','班表上傳 TC',m.tc30);metric('system-tc','歷史數據預測 TC',m.sys30);metric('system-tc','OWN 建議承接 TC',m.own30);
  const cap={};for(const t of times)cap[t]=rows.filter(x=>x.role!=='duty_manager'&&slotActive(x,t)).length;h+=`<tr class="metric capacity"><td colspan="3">可配送人力</td>`+times.map(t=>`<td>${cap[t]}</td>`).join('')+'</tr>';
  for(const g of [...new Set(rows.map(x=>x.region_code))].sort()){h+=`<tr><td class="regionhead" colspan="${times.length+3}">${esc(g)} Group</td></tr>`;for(const x of rows.filter(r=>r.region_code===g).sort((a,b)=>opMinute(a.start_time)-opMinute(b.start_time))){let breakSlots=Number(x.break_minutes||0)/30,[sh,sm]=x.start_time.split(':').map(Number),[eh,em]=x.end_time.split(':').map(Number),st=sh+sm/60,en=eh+em/60;if(en<=st)en+=24;let mid=st+(en-st)/2,bs=breakSlots?mid-breakSlots/2:null;h+=`<tr><td>${esc(g)}</td><td class="name">${esc(x.employee_name)}</td><td class="personmeta">${x.role==='duty_manager'?'值班主管':'外送員'}</td>`;for(const t of times){let [hh,mm]=t.split(':').map(Number),q=hh+mm/60;if(q<st&&en>24)q+=24;let cls='',lab='';if(q>=st&&q<en){cls='on'+(x.role==='duty_manager'?' manager':'');lab='●';if(breakSlots&&q>=bs&&q<bs+breakSlots*.5){cls='break'+(x.role==='duty_manager'?' manager':'');lab='休'}}h+=`<td class="${cls}">${lab}</td>`}h+='</tr>'}}
  h+='</tbody></table>';$('stairWrap').innerHTML=h;
@@ -832,16 +881,16 @@ function buildForecast(rows,target){
 window.showForecastGroup=(g)=>{
  if(!fcData)return;
  const a=fcData.pred.filter(x=>x.group===g), names=[...new Set(a.map(x=>x.restaurant))].sort();
- let h=`<h2>${esc(g)} Group｜餐廳預測來源</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>餐廳</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>第三方%</th><th></th></tr></thead><tbody>`;
+ let h=`<h2>${esc(g)} Group｜餐廳預測來源</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>餐廳</th><th>歷史數據預測 TC</th><th>OWN 建議承接</th><th>第三方%</th><th></th></tr></thead><tbody>`;
  for(const n of names){
-   const z=a.filter(x=>x.restaurant===n),tc=z.reduce((p,x)=>p+x.tc,0),own=z.reduce((p,x)=>p+x.own,0),third=z.reduce((p,x)=>p+x.third,0);
+   const z=a.filter(x=>x.restaurant===n),tc=z.reduce((p,x)=>p+x.tc,0),own=z.reduce((p,x)=>p+Number(x.recommendedOwn||0),0),third=z.reduce((p,x)=>p+x.third,0);
    h+=`<tr><td>${esc(n)}</td><td>${round1(tc)}</td><td>${round1(own)}</td><td>${tc?(third/tc*100).toFixed(1):'0.0'}%</td><td><button class="btn ghost" onclick="showForecastRestaurant('${String(g).replaceAll("'","\\'")}','${String(n).replaceAll("'","\\'")}')">30分鐘</button></td></tr>`;
  }
  h+='</tbody></table></div>';$('fcDetail').innerHTML=h;$('fcDetail').classList.remove('hidden');$('fcDetail').scrollIntoView({behavior:'smooth'});
 };
 window.showForecastRestaurant=(g,n)=>{
  const a=fcData.pred.filter(x=>x.group===g&&x.restaurant===n).sort((x,y)=>x.time.localeCompare(y.time));
- let h=`<h2>${esc(g)}｜${esc(n)}｜30分鐘預測依據</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>時段</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>歷史範圍</th><th>參考日</th></tr></thead><tbody>`;
+ let h=`<h2>${esc(g)}｜${esc(n)}｜30分鐘預測依據</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>時段</th><th>歷史數據預測 TC</th><th>OWN 建議承接</th><th>歷史範圍</th><th>參考日</th></tr></thead><tbody>`;
  for(const x of a){let vals=x.refs.map(r=>r.tc),lo=Math.min(...vals),hi=Math.max(...vals);h+=`<tr><td>${x.time.slice(0,5)}</td><td><b>${round1(x.tc)}</b></td><td>${(()=>{const v=forecastSuggestedOwn(x.tc,center,target,x.time,x.group);return v==null?'—':round1(v)})()}</td><td>${lo}–${hi}</td><td class="small">${x.refs.map(r=>`${r.date}: ${r.tc}`).join('｜')}</td></tr>`}
  h+=`</tbody></table></div><div class="muted" style="margin-top:10px">目前版本為基準預測：同星期歷史平均。天氣、促銷、國定假日／春節角色調整會在下一階段疊加，避免在資料尚未接入前假裝已納入。</div>`;
  $('fcDetail').innerHTML=h;
@@ -861,14 +910,14 @@ function renderForecastExtras(){
  const periods=new Map();
  for(const x of fcData.pred){
    const [p,label]=periodOf(x.time);if(!periods.has(p))periods.set(p,{label,tc:0,own:0,third:0});
-   let z=periods.get(p);z.tc+=x.tc;z.own+=x.own;z.third+=x.third;
+   let z=periods.get(p);z.tc+=x.tc;z.own+=Number(x.recommendedOwn||0);z.third+=x.third;
  }
  const order=['午餐','下午餐','晚餐','消夜','其他'],pb=$('fcPeriodBody');pb.innerHTML='';
  for(const p of order){if(!periods.has(p))continue;const z=periods.get(p),tr=document.createElement('tr');tr.innerHTML=`<td><b>${p}</b></td><td>${z.label}</td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td>${total?(z.tc/total*100).toFixed(1):'0.0'}%</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td>`;pb.appendChild(tr)}
  const gt=new Map();
- for(const x of fcData.pred){const k=x.group+'|'+x.time;if(!gt.has(k))gt.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=gt.get(k);z.tc+=x.tc;z.own+=x.own;z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.tc)}
+ for(const x of fcData.pred){const k=x.group+'|'+x.time;if(!gt.has(k))gt.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=gt.get(k);z.tc+=x.tc;z.own+=Number(x.recommendedOwn||0);z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.tc)}
  const peaks=[...gt.values()].sort((a,b)=>b.tc-a.tc).slice(0,10),bb=$('fcPeakBody');bb.innerHTML='';
- peaks.forEach((z,i)=>{let top=[...z.rests.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,v])=>`${n} ${round1(v)}`).join('、');let tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${z.time.slice(0,5)}</td><td><b>${esc(z.group)}</b></td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td class="small">${esc(top)}</td>`;bb.appendChild(tr)});
+ peaks.forEach((z,i)=>{let top=[...z.rests.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,v])=>`${n} ${round1(v)}`).join('、');let tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${z.time.slice(0,5)}</td><td><b>${esc(z.group)}</b></td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td>${round1(Math.max(0,z.tc-z.own))}</td><td class="small">${esc(top)}</td>`;bb.appendChild(tr)});
 }
 $('fcCompareBtn').onclick=()=>{
  if(!fcData)return status($('fcStatus'),'請先產生一次 TC 預測。','bad');
@@ -888,9 +937,9 @@ $('fcRun').onclick=async()=>{
  try{
    const rows=await loadForecastHistory(center,target,days);
    if(!rows.length)throw new Error('此中心在預測日前沒有可用的 DMS 歷史資料。');
-   fcData=buildForecast(rows,target);
+   fcData=buildForecast(rows,target);await applyHistoricalWeatherToForecast(center,target,rows,fcData);applyOwnPlanToForecast(fcData.pred,center,target);
    if(!fcData.pred.length)throw new Error('找不到可建立預測的歷史資料。');
-   const tc=fcData.pred.reduce((p,x)=>p+x.tc,0),own=fcData.pred.reduce((p,x)=>p+x.own,0);
+   const tc=fcData.pred.reduce((p,x)=>p+x.tc,0),own=fcData.pred.reduce((p,x)=>p+Number(x.recommendedOwn||0),0);
    $('fcTitle').textContent=`${center}｜${target} 系統 TC 需求預測`;
    $('fcTc').textContent=Math.round(tc).toLocaleString();$('fcOwn').textContent=Math.round(own).toLocaleString();
    $('fcRefs').textContent=fcData.dates.length+' 天';$('fcRefDates').textContent=fcData.dates.join('、');
@@ -899,9 +948,9 @@ $('fcRun').onclick=async()=>{
    $('fcConf').textContent=conf;$('fcConfNote').textContent=`樣本 ${fcData.dates.length} 天；波動指標 ${(cv*100).toFixed(1)}%`;
    $('fcTcNote').textContent=fcData.usedSameWeekday?'同星期歷史平均':'同星期資料不足，暫用近期資料';
    const groups=[...new Set(fcData.pred.map(x=>x.group))].sort(),body=$('fcGroupBody');body.innerHTML='';
-   for(const g of groups){const a=fcData.pred.filter(x=>x.group===g),gtc=a.reduce((p,x)=>p+x.tc,0),go=a.reduce((p,x)=>p+x.own,0),gp=a.reduce((p,x)=>p+x.third,0);let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(gtc)}</td><td>${round1(go)}</td><td>${gtc?(gp/gtc*100).toFixed(1):'0.0'}%</td><td>${fcData.dates.length}天</td><td><button class="btn ghost" onclick="showForecastGroup('${String(g).replaceAll("'","\\'")}')">展開餐廳</button></td>`;body.appendChild(tr)}
+   for(const g of groups){const a=fcData.pred.filter(x=>x.group===g),gtc=a.reduce((p,x)=>p+x.tc,0),go=a.reduce((p,x)=>p+Number(x.recommendedOwn||0),0),g3=a.reduce((p,x)=>p+Number(x.recommendedThird||0),0),hist3=a.reduce((p,x)=>p+x.third,0),plan=a[0]?.ownPlan||groupOwnPlan(fcData.pred,center,target,g),stc=scheduleTcForGroup(target,g);let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(gtc)}</td><td>${stc?round1(stc):'—'}</td><td>${round1(plan.hours)} h</td><td><b>${round1(go)}</b></td><td>${round1(g3)}</td><td class="small">${esc(plan.reason)}</td><td>${gtc?(hist3/gtc*100).toFixed(1):'0.0'}%</td><td>${fcData.dates.length}天</td><td><button class="btn ghost" onclick="showForecastGroup('${String(g).replaceAll("'","\\'")}')">展開餐廳</button></td>`;body.appendChild(tr)}
    renderForecastExtras();$('fcCompare').classList.add('hidden');$('fcDetail').classList.add('hidden');$('fcResult').classList.remove('hidden');
-   status($('fcStatus'),`預測完成。使用 ${fcData.dates.length} 個${fcData.usedSameWeekday?'相同星期':'近期'}參考日；可展開 Group → 餐廳 → 30分鐘查看計算依據。`,'ok');
+   status($('fcStatus'),`預測完成。使用 ${fcData.dates.length} 個${fcData.usedSameWeekday?'相同星期':'近期'}參考日；${fcData.weatherAdjusted?`另有 ${fcData.weatherAdjusted} 個30分鐘時段依雨天歷史調整。`:'本次無符合條件的雨天歷史調整。'}可展開 Group → 餐廳 → 30分鐘查看計算依據。`,'ok');
  }catch(e){status($('fcStatus'),'預測失敗：'+(e.message||e),'bad')}
 };
 
@@ -915,7 +964,7 @@ async function loadAnalysisSchedule(center,date){
 }
 function groupSlotForecast(pred){
  const m=new Map();
- for(const x of pred){const k=x.group+'|'+x.time;if(!m.has(k))m.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=m.get(k);z.tc+=x.tc;z.own+=x.own;z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.own)}
+ for(const x of pred){const k=x.group+'|'+x.time;if(!m.has(k))m.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=m.get(k);z.tc+=x.tc;z.own+=Number(x.recommendedOwn||0);z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.own)}
  return [...m.values()];
 }
 function mergeAlerts(rows){
@@ -931,7 +980,7 @@ function mergeAlerts(rows){
 }
 window.showAnalysisGroup=(g)=>{
  if(!anData)return;const rows=anData.slots.filter(x=>x.group===g).sort((a,b)=>opMinute(a.time)-opMinute(b.time));
- let h=`<h2>${esc(g)} Group｜30分鐘人力明細</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>時間</th><th>系統OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>人力差</th><th>狀態</th></tr></thead><tbody>`;
+ let h=`<h2>${esc(g)} Group｜30分鐘人力明細</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>時間</th><th>OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>人力差</th><th>狀態</th></tr></thead><tbody>`;
  for(const x of rows)h+=`<tr><td>${x.time.slice(0,5)}</td><td>${round1(x.own)}</td><td>${x.available}</td><td>${round1(x.need)}</td><td>${round1(x.available-x.need)}</td><td>${x.status}</td></tr>`;
  h+='</tbody></table></div>';$('anDetail').innerHTML=h;$('anDetail').classList.remove('hidden');$('anDetail').scrollIntoView({behavior:'smooth'});
 };
@@ -946,6 +995,77 @@ const GROUP_WEATHER={
  I998:{A:['台南市區',22.991,120.213],B:['中西區、西區',22.994,120.197],C:['新營',23.306,120.316],D:['嘉義市',23.482,120.453],E:['善化、新市',23.120,120.300],F:['斗六',23.711,120.544],G:['虎尾、民雄、北港',23.620,120.430]},
  I981:{A:['苓雅、鳳山',22.625,120.335],B:['三民',22.650,120.320],C:['左營、鼓山',22.680,120.295],D:['岡山、楠梓',22.760,120.300],E:['屏東',22.676,120.494],F:['花蓮',23.991,121.611],G:['潮州',22.551,120.540],H:['台東',22.760,121.145]}
 };
+const HIST_WX_RAIN_MM=0.5;
+const HIST_WX_MIN_SAMPLES=3;
+function initHistoricalWeatherUi(){
+ const sel=$('histWxCenter'); if(!sel)return;
+ sel.innerHTML=''; const allowed=profile?.role==='op_admin'?Object.keys(CENTERS):[profile?.center_id].filter(Boolean);
+ for(const c of allowed){const o=document.createElement('option');o.value=c;o.textContent=`${c}｜${CENTERS[c]}`;sel.appendChild(o)}
+ if(activeCenter&&allowed.includes(activeCenter))sel.value=activeCenter;
+ $('histWxBuildAll')?.classList.toggle('hidden',profile?.role!=='op_admin');
+}
+async function cleanupHistoricalWeather(){
+ if(profile?.role!=='op_admin')return;
+ const cutoff=dateAdd(new Date().toISOString().slice(0,10),-731);
+ const {error}=await sb.from('weather_history_daily').delete().lt('weather_date',cutoff); if(error)throw error;
+}
+async function loadHistoricalWeatherRows(center,start,end){
+ let all=[],from=0,step=1000;
+ while(true){
+  let q=sb.from('weather_history_daily').select('center_id,group_code,weather_date,hours').eq('center_id',center).order('weather_date').range(from,from+step-1);
+  if(start)q=q.gte('weather_date',start);if(end)q=q.lte('weather_date',end);
+  const {data,error}=await q;if(error)throw error;all.push(...(data||[]));if(!data||data.length<step)break;from+=step;if(from>100000)break;
+ }
+ return all;
+}
+async function refreshHistoricalWeatherStatus(){
+ const center=$('histWxCenter')?.value||activeCenter;if(!center)return;
+ try{
+  status($('histWxStatus'),'正在檢查資料庫…');
+  const rows=await loadHistoricalWeatherRows(center);
+  $('histWxRows').textContent=rows.length.toLocaleString();$('histWxMin').textContent=rows.length?rows[0].weather_date:'—';$('histWxMax').textContent=rows.length?rows.at(-1).weather_date:'—';
+  const body=$('histWxBody');body.innerHTML='';
+  for(const [g,v] of Object.entries(GROUP_WEATHER[center]||{})){
+   const a=rows.filter(x=>x.group_code===g);const tr=document.createElement('tr');tr.innerHTML=`<td><b>${g}</b></td><td>${esc(v[0])}</td><td>${a.length.toLocaleString()}</td><td>${a.length?a[0].weather_date:'—'}</td><td>${a.length?a.at(-1).weather_date:'—'}</td>`;body.appendChild(tr);
+  }
+  status($('histWxStatus'),rows.length?`已讀取 ${center} 歷史天氣，共 ${rows.length.toLocaleString()} 筆。`:`${center} 尚未建立歷史天氣。`,'ok');
+ }catch(e){status($('histWxStatus'),'讀取失敗：'+(e.message||e),'bad')}
+}
+async function fetchArchiveChunk(name,lat,lon,start,end,group){
+ const u=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=precipitation,rain,weather_code,wind_speed_10m&timezone=Asia%2FTaipei`;
+ const r=await fetch(u);if(!r.ok)throw new Error(`${group} ${name} 歷史天氣 HTTP ${r.status}`);const j=await r.json(),h=j.hourly||{};const by={};
+ for(let i=0;i<(h.time||[]).length;i++){const dt=h.time[i],d=dt.slice(0,10),t=dt.slice(11,16);if(tm(t)<660)continue;(by[d]??=[]).push({time:t,precipitation:Number(h.precipitation?.[i]||0),rain:Number(h.rain?.[i]||0),weather_code:Number(h.weather_code?.[i]||0),wind_speed_10m:Number(h.wind_speed_10m?.[i]||0)});}
+ return Object.entries(by).map(([weather_date,hours])=>({center_id:null,group_code:group,weather_date,hours,source:'open-meteo-archive',updated_at:new Date().toISOString()}));
+}
+async function buildHistoricalWeatherCenter(center,onProgress=()=>{}){
+ if(profile?.role!=='op_admin')throw new Error('只有 OP 管理員可以更新歷史天氣。');
+ await cleanupHistoricalWeather();const today=new Date().toISOString().slice(0,10),end=dateAdd(today,-5),start=dateAdd(today,-730),defs=GROUP_WEATHER[center];let done=0,total=Object.keys(defs).length;
+ for(const [g,v] of Object.entries(defs)){
+  let rows=[];
+  for(let cur=start;cur<=end;){let chunkEnd=dateAdd(cur,179);if(chunkEnd>end)chunkEnd=end;const part=await fetchArchiveChunk(v[0],v[1],v[2],cur,chunkEnd,g);rows.push(...part);cur=dateAdd(chunkEnd,1);}
+  rows.forEach(x=>x.center_id=center);
+  for(let i=0;i<rows.length;i+=100){const {error}=await sb.from('weather_history_daily').upsert(rows.slice(i,i+100),{onConflict:'center_id,group_code,weather_date'});if(error)throw error;}
+  done++;onProgress(`${center} ${g}｜${v[0]} 完成（${done}/${total} Group）`);
+ }
+ return {start,end};
+}
+async function buildRainImpact(center,dmsRows,target){
+ if(!dmsRows?.length)return new Map();const dates=dmsRows.map(x=>x.business_date).sort(),wx=await loadHistoricalWeatherRows(center,dates[0],dates.at(-1));const wxMap=new Map();
+ for(const d of wx)for(const h of (d.hours||[]))wxMap.set(`${d.group_code}|${d.weather_date}|${h.time}`,Number(h.rain??h.precipitation??0));
+ const m=new Map(),wd=weekday(target);
+ for(const r of dmsRows){if(weekday(r.business_date)!==wd)continue;const g=r.restaurants?.region_code;if(!g)continue;const time=String(r.bucket_time).slice(0,5),rain=wxMap.get(`${g}|${r.business_date}|${time}`);if(rain==null)continue;const k=`${g}|${time}`,z=m.get(k)||{rain:[],dry:[]};z[rain>=HIST_WX_RAIN_MM?'rain':'dry'].push(Number(r.tc)||0);m.set(k,z);}
+ const out=new Map();for(const [k,z] of m){if(z.rain.length>=HIST_WX_MIN_SAMPLES&&z.dry.length>=HIST_WX_MIN_SAMPLES){const dry=mean(z.dry),rain=mean(z.rain);if(dry>0)out.set(k,{factor:Math.max(.8,Math.min(1.6,rain/dry)),rainN:z.rain.length,dryN:z.dry.length,rainAvg:rain,dryAvg:dry});}}
+ return out;
+}
+async function applyHistoricalWeatherToForecast(center,target,hist,fc){
+ try{
+  const [impact,fwx]=await Promise.all([buildRainImpact(center,hist,target),loadWeather(center,target)]);let adjusted=0;
+  for(const x of fc.pred){const w=(fwx.groups?.[x.group]?.rows||[]).find(r=>r.time===String(x.time).slice(0,5));const im=impact.get(`${x.group}|${String(x.time).slice(0,5)}`);if(!w||!im)continue;
+   if(w.rain>=HIST_WX_RAIN_MM||w.pop>=60){const histFactor=Math.max(1,im.factor),weight=Math.max(.35,Math.min(1,Math.max(w.pop/100,w.rain>=2.5?1:w.rain/HIST_WX_RAIN_MM*.5))),factor=1+(histFactor-1)*weight;if(factor>1.001){x.weatherBaseTc=x.tc;x.weatherFactor=factor;x.tc*=factor;x.own*=factor;x.third*=factor;x.weatherReason=`雨天歷史 ${im.rainN} 筆 vs 非雨天 ${im.dryN} 筆`;adjusted++;}}
+  }
+  fc.weatherAdjusted=adjusted;return fc;
+ }catch(e){console.warn('historical weather adjustment skipped',e);fc.weatherAdjusted=0;return fc}
+}
 function wxText(code){
  if(code===0)return'晴'; if([1,2,3].includes(code))return'多雲'; if([45,48].includes(code))return'霧';
  if([51,53,55,56,57].includes(code))return'毛毛雨'; if([61,63,65,66,67,80,81,82].includes(code))return'雨';
@@ -1018,7 +1138,7 @@ $('anRun').onclick=async()=>{
    const [shifts,hist,wx]=await Promise.all([loadAnalysisSchedule(center,date),loadForecastHistory(center,date,days),loadWeather(center,date)]);
    if(!shifts.length)throw new Error(`${center} ${date} 尚未找到已寫入的班表。`);
    if(!hist.length)throw new Error('預測日前沒有 DMS 歷史資料。');
-   const fc=buildForecast(hist,date),gs=groupSlotForecast(fc.pred);
+   const fc=buildForecast(hist,date);await applyHistoricalWeatherToForecast(center,date,hist,fc);const gs=groupSlotForecast(fc.pred);
    // Current baseline productivity: full-day target 2.0 is used only when history cannot estimate a stable slot requirement.
    // Requirement is expressed as simultaneous riders for a 30-minute demand bucket: OWN TC / (TPLH * 0.5).
    const slots=gs.map(z=>{
@@ -1071,14 +1191,14 @@ function addSheetAutoWidth(ws,rows){
 function analysisExportRows(){
  if(!anData)return [];
  return anData.slots.slice().sort((a,b)=>a.group.localeCompare(b.group)||a.time.localeCompare(b.time)).map(x=>({
-  '日期':anData.date,'Group':x.group,'時間':x.time.slice(0,5),'系統預測TC':round1(x.tc),'系統OWN建議承接 TC':round1(x.own),
+  '日期':anData.date,'Group':x.group,'時間':x.time.slice(0,5),'歷史數據預測TC':round1(x.tc),'OWN 建議承接 TC':round1(x.own),
   '可配送人力':x.available,'需求人力(暫估)':round1(x.need),'人力差':round1(x.available-x.need),'狀態':x.status
  }));
 }
 function opsExportRows(){
  if(!anData)return [];
  const fmt=m=>`${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
- return anData.alerts.map(x=>({'日期':anData.date,'Group':x.group,'時間':`${fmt(x.startMin)}–${fmt(x.endMin)}`,'狀態':x.status,'系統OWN建議承接 TC':round1(x.own),'可配送人力':x.available,'需求人力(暫估)':round1(x.need),'缺口':round1(x.gap)}));
+ return anData.alerts.map(x=>({'日期':anData.date,'Group':x.group,'時間':`${fmt(x.startMin)}–${fmt(x.endMin)}`,'狀態':x.status,'OWN 建議承接 TC':round1(x.own),'可配送人力':x.available,'需求人力(暫估)':round1(x.need),'缺口':round1(x.gap)}));
 }
 function weatherExportRows(){
  if(!anData?.wx?.rows)return [];
@@ -1103,7 +1223,7 @@ $('exportScheduleAnalysisBtn').onclick=()=>{
  downloadWorkbook(true);
 };
 
-function publicTableHtml(title){const table=$('publicScheduleTable');if(!table)throw new Error('請先選擇有班表的日期。');return `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif}h2{font-size:16px}p{font-size:11px}table{border-collapse:collapse}th,td{border:1px solid #999;padding:3px;text-align:center;font-size:9px}.name{text-align:left}.on{background:#dbeafe}.break{background:#ffedd5}.metric{font-weight:bold}.schedule-tc td{background:#fff7ed}.system-tc td{background:#eef4ff}.capacity td{background:#f0fdf4}.regionhead{text-align:left;font-weight:bold;background:#eee}</style></head><body><h2>${title}</h2><p>班表 TC：${$('kScheduleTc').textContent}　｜　系統預測 TC：${$('kSystemTc').textContent}　｜　OWN 建議承接 TC：${$('kSystemOwn').textContent}　｜　外送員工時：${$('scheduleOpsSummary')?.textContent||''}　｜　預估 OWN TPLH：${$('kPlanTplh').textContent}</p>${table.outerHTML}</body></html>`}
+function publicTableHtml(title){const table=$('publicScheduleTable');if(!table)throw new Error('請先選擇有班表的日期。');return `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif}h2{font-size:16px}p{font-size:11px}table{border-collapse:collapse}th,td{border:1px solid #999;padding:3px;text-align:center;font-size:9px}.name{text-align:left}.on{background:#dbeafe}.break{background:#ffedd5}.metric{font-weight:bold}.schedule-tc td{background:#fff7ed}.system-tc td{background:#eef4ff}.capacity td{background:#f0fdf4}.regionhead{text-align:left;font-weight:bold;background:#eee}</style></head><body><h2>${title}</h2><p>班表上傳 TC：${$('kScheduleTc').textContent}　｜　歷史數據預測 TC：${$('kSystemTc').textContent}　｜　OWN 建議承接 TC：${$('kSystemOwn').textContent}　｜　外送員工時：${$('scheduleOpsSummary')?.textContent||''}　｜　預估 OWN TPLH：${$('kPlanTplh').textContent}</p>${table.outerHTML}</body></html>`}
 function publicDownload(content,name){const blob=new Blob(['\ufeff'+content],{type:'application/vnd.ms-excel;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)}
 $('exportDayPublicBtn').onclick=()=>{try{publicDownload(publicTableHtml(`${activeCenter} ${CENTERS[activeCenter]||''} ${selectedDate} 服務組班表`),`${activeCenter}_${selectedDate}_KFC公版班表.xls`)}catch(e){alert(e.message)}};
 $('exportWeekPublicBtn').onclick=()=>downloadWorkbook(false);
@@ -1284,6 +1404,10 @@ function suggestedThirdParty(total,own){
 }
 
 
+if($('histWxCenter'))$('histWxCenter').onchange=refreshHistoricalWeatherStatus;
+if($('histWxRefresh'))$('histWxRefresh').onclick=refreshHistoricalWeatherStatus;
+if($('histWxBuild'))$('histWxBuild').onclick=async()=>{const c=$('histWxCenter').value,b=$('histWxBuild');b.disabled=true;try{status($('histWxStatus'),`${c} 開始建立近 24 個月歷史天氣…`);const r=await buildHistoricalWeatherCenter(c,m=>status($('histWxStatus'),m));status($('histWxStatus'),`${c} 完成：${r.start}～${r.end}。`,'ok');await refreshHistoricalWeatherStatus()}catch(e){status($('histWxStatus'),'建立失敗：'+(e.message||e),'bad')}finally{b.disabled=false}};
+if($('histWxBuildAll'))$('histWxBuildAll').onclick=async()=>{const b=$('histWxBuildAll');b.disabled=true;try{for(const c of Object.keys(CENTERS)){status($('histWxStatus'),`六中心更新中：${c}…`);await buildHistoricalWeatherCenter(c,m=>status($('histWxStatus'),m));}status($('histWxStatus'),'六中心近 24 個月歷史天氣更新完成。','ok');await refreshHistoricalWeatherStatus()}catch(e){status($('histWxStatus'),'更新失敗：'+(e.message||e),'bad')}finally{b.disabled=false}};
 restore();
 </script>
 </body></html>
