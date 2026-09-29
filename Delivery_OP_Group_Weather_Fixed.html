@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Delivery OP｜營運決策支援系統</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1d2430;--muted:#6b7280;--line:#e5e7eb;--red:#b42318;--amber:#b54708;--green:#067647;--blue:#175cd3;--nav:#111827}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--text)}
+.hidden{display:none!important}.wrap{max-width:1380px;margin:auto;padding:20px}
+.apphead{background:var(--nav);color:#fff}.apphead .inner{max-width:1380px;margin:auto;padding:18px 20px;display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}
+.brand b{font-size:20px}.brand span{display:block;color:#cbd5e1;font-size:12px;margin-top:4px}.headright{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.pill{padding:7px 11px;border:1px solid #475569;border-radius:8px;font-size:12px;color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:none}
+h1{font-size:20px;margin:0}h2{font-size:18px;margin:4px 0 14px}h3{font-size:15px;margin:0 0 10px}.muted,.note{font-size:12px;color:var(--muted);line-height:1.6}
+input,select{border:1px solid #d0d5dd;border-radius:7px;padding:8px;font-size:14px}.login input{width:100%}.login{max-width:520px;margin:60px auto}
+label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border:0;background:#111827;color:#fff;border-radius:8px;padding:9px 12px;cursor:pointer;font-weight:700}.btn.ghost{background:#fff;color:#344054;border:1px solid #d0d5dd}.btn.danger{background:#b42318}.btn:disabled{opacity:.45;cursor:not-allowed}
+.status,.banner{padding:12px 14px;border-radius:10px;background:#fffaeb;border:1px solid #fedf89;margin:10px 0;font-size:13px;white-space:pre-wrap}.status.ok{background:#ecfdf3;border-color:#abefc6;color:#067647}.status.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}.status.warn{background:#fffaeb;color:#b54708}
+.top{display:none}.role{background:#eef4ff;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700}
+.nav,.tabs{display:flex;gap:6px;overflow:auto;margin-bottom:16px}.nav button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:10px 14px;white-space:nowrap;cursor:pointer}.nav button.active{background:#111827;color:#fff;border-color:#111827}
+.page{display:none}.page.active{display:block}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.kpi{padding:16px}.kpi .l{font-size:12px;color:var(--muted)}.kpi .v{font-size:28px;font-weight:700;margin:7px 0}.small{font-size:12px}
+.centerbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.centerbar select{min-width:150px}.tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#f2f4f7;font-size:12px}
+.forecast-datebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#eef4ff;border:1px solid #b2ccff;border-radius:10px;padding:11px 14px;margin:0 0 14px;color:#1849a9}
+.forecast-datebar b{font-size:16px}.forecast-datebar .date{font-size:20px;font-weight:800;color:#101828}
+.drop{border:2px dashed #d0d5dd;border-radius:12px;padding:24px;text-align:center;background:#fff}.drop input{margin-top:10px}
+.tablewrap{overflow:auto}.tbl{width:100%;border-collapse:collapse;min-width:760px}.tbl th,.tbl td{padding:10px 9px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}.tbl th{background:#f8fafc;color:#475467;position:sticky;top:0}.tbl select{padding:6px}
+.actions,.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.progress{height:8px;background:#eaecf0;border-radius:8px;overflow:hidden;margin-top:8px}.progress span{display:block;height:100%;background:#667085}
+.daytabs{display:flex;gap:6px;overflow:auto;margin:0 0 12px}.daytabs button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:10px 14px;white-space:nowrap;cursor:pointer}.daytabs button.active{background:#111827;color:#fff;border-color:#111827}
+.kfc-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.kfc-title{font-size:18px;font-weight:800}.kfc-sub{font-size:12px;color:var(--muted)}
+.stair{overflow:auto;border:1px solid var(--line);border-radius:10px}.stair table{border-collapse:collapse;min-width:1220px;width:100%}.stair th,.stair td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);height:34px;padding:4px 6px;font-size:11px;text-align:center;white-space:nowrap}.stair th{background:#f8fafc;color:#475467;position:sticky;top:0;z-index:2}
+.stair td.name{position:sticky;left:0;background:#fff;text-align:left;min-width:150px;z-index:1;font-weight:700}.stair td.regionhead{background:#f2f4f7;text-align:left;font-weight:700;color:#344054}.on{background:#eef4ff;font-weight:700}.break{background:#fff4ed}.manager{background:#fff4ed!important;font-weight:700;box-shadow:none}.stair tr.metric td{font-weight:700}.stair tr.schedule-tc td{background:#fff7ed}.stair tr.system-tc td{background:#eef4ff}.stair tr.capacity td{background:#f8fafc}
+.split{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.section{margin-top:16px}
+.refbanner{background:#fffaeb;border:1px solid #fedf89;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.split{grid-template-columns:1fr}}@media(max-width:520px){.wrap{padding:12px}.grid{grid-template-columns:1fr}.kpi .v{font-size:24px}}
+
+.timeline{border-left:2px solid #d0d5dd;margin:12px 0 8px 10px}
+.event{position:relative;padding:0 0 20px 28px}
+.event:before{content:"";position:absolute;left:-7px;top:3px;width:11px;height:11px;background:#fff;border:2px solid #667085;border-radius:50%}
+.event .time{font-size:17px;font-weight:800;color:#1d2430}
+.event p{margin:6px 0 0;color:#475467;font-size:13px;line-height:1.65}
+.event .action{font-weight:700;color:#344054}
+
+.strategy-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+.strategy-card{border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:16px}
+.strategy-card .strategy-time{font-size:18px;font-weight:800;margin-bottom:10px}
+.strategy-card .strategy-main{font-size:14px;line-height:1.75;color:#344054}
+.strategy-card .strategy-main b{color:#101828}
+.strategy-card .strategy-reason{margin-top:9px;padding-top:9px;border-top:1px solid #eaecf0;font-size:12px;color:#667085;line-height:1.6}
+.strategy-card.high{border-left:4px solid #b42318}
+.strategy-card.mid{border-left:4px solid #b54708}
+.strategy-card.ok{border-left:4px solid #067647}
+</style>
+</head>
+<body>
+<div id="loginView" class="wrap login">
+  <div class="card">
+    <h1>Delivery OP</h1>
+    <div class="muted">六中心正式連線版｜Supabase Auth + 班表 Excel 匯入</div>
+    <label>Email</label><input id="email" type="email" autocomplete="username">
+    <label>Password</label><input id="password" type="password" autocomplete="current-password">
+    <div class="actions"><button class="btn" id="loginBtn">登入</button></div>
+    <div id="loginStatus" class="status">等待登入</div>
+  </div>
+</div>
+
+<div id="appHeader" class="apphead hidden"><div class="inner">
+<div class="brand"><b id="headerCenter">Delivery OP｜營運決策支援系統</b><span>KFC 公版班表 × DMS 需求預測 × Group 天氣 × 營運策略</span></div>
+<div class="headright"><div class="pill">年度整日 OWN TPLH 目標 2.00　｜　第三方 ≤25%</div><span id="headerRole" class="pill"></span><select id="headerCenterSelect"></select><button class="btn ghost" id="headerLogout">登出</button></div>
+</div></div>
+<div id="appView" class="wrap hidden">
+  <div class="top">
+    <div><h1 id="welcome">Delivery OP</h1><div id="account" class="muted"></div></div>
+    <div class="centerbar"><span id="roleBadge" class="role"></span><select id="centerSelect"></select><button class="btn ghost" id="logoutBtn">登出</button></div>
+  </div>
+  <div class="refbanner"><b>系統說明：</b>整合班表 TC、DMS 需求預測、配送人力、Group 天氣與營運策略，協助外送中心進行每日人力與營運規劃。</div>
+  <div class="nav">
+    <button class="active" data-page="schedule">一週班表</button>
+    <button data-page="demand">TC需求預測</button>
+    <button data-page="analysis">班表分析</button><button data-page="opsadvice">營運策略</button>
+    <button data-page="import">班表匯入</button>
+    <button id="dmsNav" data-page="dms">DMS匯入</button>
+    <button data-page="promo">促銷／颱風標記</button>
+  </div>
+  <div id="forecastDateBar" class="forecast-datebar"><b>目前預測日期</b><span class="date" id="currentForecastDate">—</span><span id="currentForecastDow"></span><span class="muted">TC預測、班表分析、Group天氣與營運策略皆以此日期為準</span></div>
+
+  <section id="schedule" class="page active">
+    <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      <div class="card kpi"><div class="l">班表 TC</div><div class="v" id="kScheduleTc">—</div><div class="small muted">KFC 公版預估 TC</div></div>
+      <div class="card kpi"><div class="l">系統預測 TC</div><div class="v" id="kSystemTc">—</div><div class="small muted" id="kTcDiff">與班表 TC 比較</div></div>
+      <div class="card kpi"><div class="l">OWN 建議承接 TC</div><div class="v" id="kSystemOwn">—</div><div class="small muted">有當日班表才計算；無班表顯示 —</div></div>
+      <div class="card kpi"><div class="l">預估 OWN TPLH</div><div class="v" id="kPlanTplh">—</div><div class="small muted">年度目標 2.00</div></div>
+    </div>
+    <div class="card">
+      <div class="kfc-meta"><div><div class="kfc-title" id="scheduleTitle">中心合併班表</div><div class="kfc-sub">KFC 公版格式｜橘色＝班表 TC；藍色＝系統預測 TC；綠色＝可配送人力</div></div>
+      <div class="actions"><button class="btn ghost" id="refreshSchedule">重新整理</button><button class="btn ghost" id="exportDayPublicBtn">匯出單日 KFC 公版</button><button class="btn ghost" id="exportWeekPublicBtn">匯出整週 Excel</button></div></div>
+      <div class="status" id="scheduleOpsSummary" style="background:#f8fafc;border-color:#e5e7eb;color:#475467;margin:10px 0">排班外送員工時與關注時段會依當日班表分析更新。</div>
+<div id="dayTabs" class="daytabs"></div><div class="legend" style="display:flex;gap:12px;font-size:12px;color:#667085;margin:8px 0"><span><i style="display:inline-block;width:10px;height:10px;background:#eef4ff;margin-right:4px"></i>外送員班段</span><span><i style="display:inline-block;width:10px;height:10px;background:#fff4ed;margin-right:4px"></i>值班主管（不計配送人力）</span></div><div class="status" style="margin-bottom:10px"><b>資料來源：</b>班表 TC 取自上傳 KFC 公版「預估 TC」列；系統預測 TC 取自 Supabase DMS 歷史資料。兩者不互相覆蓋。</div>
+      <div id="scheduleEmpty" class="status">目前中心尚無班表資料。</div>
+      <div id="stairWrap" class="stair hidden"></div>
+    </div>
+  </section>
+
+  <section id="opsadvice" class="page">
+    <div class="grid">
+      <div class="card kpi"><div class="l">目前預測日期</div><div class="v" id="opsAdviceDate">—</div><div class="small muted">依班表分析日期</div></div>
+      <div class="card kpi"><div class="l">優先處理</div><div class="v" id="opsHighCount">—</div><div class="small muted">人力不足／高風險</div></div>
+      <div class="card kpi"><div class="l">跨 Group 支援</div><div class="v" id="opsSupportCount">—</div><div class="small muted">優先使用內部人力</div></div>
+      <div class="card kpi"><div class="l">行動順序</div><div class="v" style="font-size:18px">調人 → 第三方</div><div class="small muted">再縮距離 → QT → 停單</div></div>
+    </div>
+    <div class="card">
+      <h2>營運策略</h2>
+      <p class="note">每個時段只顯示一張策略卡，整合該時段所有 Group。先說明人員如何調動，再說明第三方、外送距離與 QT 是否需要調整；停單只作最後手段。</p>
+      <div id="opsAdviceEmpty" class="status">請先到「班表分析」選擇中心與日期並執行分析。</div>
+      <div id="opsStrategyTimeline" class="strategy-grid"></div>
+      <div class="muted" style="margin-top:12px">同一時段只顯示一張策略卡；卡片內整合跨 Group 人力調動與營運調整。</div>
+      <div class="tablewrap hidden"><table class="tbl"><tbody id="opsAdviceRows"></tbody></table></div>
+    </div>
+    <div class="card"><h2>Group 天氣與營運風險</h2><div id="opsWeatherSummary" class="note">執行班表分析後，依各中心實際 Group 顯示天氣風險。</div></div>
+  </section>
+
+  <section id="import" class="page">
+    <div class="card">
+      <h2>匯入已排好的班表 Excel</h2>
+      <div class="muted">直接讀取公司排班檔。系統目前已針對你提供的「服務組班表-KFC」格式解析：N1 辨識中心/區域、AG1 辨識日期、B欄辨識姓名、D:AS 每30分鐘判斷在班與休息。原班表的「預估TC」不會拿來當系統需求預測。</div>
+      <div class="drop">
+        <b>選擇班表 Excel</b><br><span class="muted">可一次選多個區域／日期檔案</span><br>
+        <input id="scheduleFiles" type="file" accept=".xlsx,.xls" multiple>
+      </div>
+      <div id="parseStatus" class="status">尚未選擇檔案。</div>
+      <div class="actions"><button class="btn" id="parseBtn">解析並檢查</button><button class="btn ghost" id="resetPreview">清除預覽</button></div>
+    </div>
+
+    <div id="previewCard" class="card hidden">
+      <h2>匯入前預覽</h2>
+      <div class="grid">
+        <div class="kpi"><div class="l">中心</div><div class="v" id="pCenter">—</div></div>
+        <div class="kpi"><div class="l">日期範圍</div><div class="v" id="pDates">—</div></div>
+        <div class="kpi"><div class="l">區域</div><div class="v" id="pRegions">—</div></div>
+        <div class="kpi"><div class="l">班別</div><div class="v" id="pCount">0</div></div>
+      </div>
+      <div id="validation" class="status"></div><div id="coveragePreview" class="status"></div>
+      <div class="status" style="margin-bottom:12px"><b>班表資料：</b>日期／Group／姓名／上班／下班／休息／角色。匯出 Excel 會保持這些欄位；「系統預測 TC」與「班表 TC」會在分析資料中分開標示。</div><div class="tablewrap"><table class="tbl"><thead><tr><th>日期</th><th>區域</th><th>姓名</th><th>開始</th><th>結束</th><th>休息</th><th>角色</th><th>來源</th></tr></thead><tbody id="previewBody"></tbody></table></div>
+      <div class="actions">
+        <button class="btn" id="saveBtn">確認並寫入 Supabase</button><button class="btn ghost" id="scheduleDbTestBtn" type="button">測試班表資料庫連線</button>
+        <button class="btn danger" id="clearCurrentBtn">清除目前中心班表</button><button class="btn ghost" id="exportScheduleBtn" type="button">匯出班表 Excel</button><button class="btn ghost" id="exportScheduleAnalysisBtn" type="button">匯出班表＋分析 Excel</button>
+      </div>
+      <div id="saveStatus" class="status">尚未寫入。</div><div id="exportStatus" class="status">可匯出目前中心已載入的班表。</div>
+    </div>
+  </section>
+
+
+  <section id="dms" class="page">
+    <div class="card">
+      <h2>DMS 資料庫狀態</h2>
+      <div class="grid">
+        <div class="kpi"><div class="l">資料庫目前最新</div><div class="v" id="dbLatest">—</div><div class="small muted" id="dbRange">讀取中…</div></div>
+        <div class="kpi"><div class="l">建議接續匯入</div><div class="v" id="dbNext">—</div><div class="small muted">依資料庫最新日期＋1天</div></div>
+        <div class="kpi"><div class="l">上次成功匯入</div><div class="v" id="lastImportEnd">—</div><div class="small muted" id="lastImportRange">本裝置尚無紀錄</div></div>
+      </div>
+      <div id="centerFreshness" class="status">登入後自動檢查六中心最新資料日期。</div>
+      <div class="actions"><button class="btn ghost" id="refreshDmsStatus">重新檢查資料庫</button></div>
+    </div>
+    <div class="card">
+      <h2>OP｜DMS 實際訂單（11:00後）統一匯入</h2>
+      <div class="muted">原始 Excel 只在你的瀏覽器中解析，不上傳、不保存顧客姓名、電話、地址或逐筆訂單。寫入 Supabase 的只有「中心 × 餐廳 × 日期 × 30分鐘」彙總資料。</div>
+      <div class="drop" style="margin-top:14px">
+        <b>選擇 DMS ByOrder Excel</b><br>
+        <span class="muted">支援你目前的 report_by-order 格式</span><br>
+        <input id="dmsFile" type="file" accept=".xlsx,.xls">
+      </div>
+      <div class="actions"><button class="btn" id="dmsParseBtn">解析並檢查</button><button class="btn ghost" id="dmsResetBtn">清除預覽</button></div>
+      <div id="dmsStatus" class="status">尚未選擇 DMS 檔案。</div>
+    </div>
+
+    <div id="dmsPreview" class="card hidden">
+      <h2>寫入前預覽</h2>
+      <div class="grid">
+        <div class="kpi"><div class="l">原始訂單</div><div class="v" id="dmsOrders">0</div><div class="small muted">僅本機解析</div></div>
+        <div class="kpi"><div class="l">日期範圍</div><div class="v" id="dmsDates">—</div><div class="small muted" id="dmsDays"></div></div>
+        <div class="kpi"><div class="l">中心</div><div class="v" id="dmsCenters">—</div><div class="small muted">自動由 AC 辨識</div></div>
+        <div class="kpi"><div class="l">30分鐘彙總</div><div class="v" id="dmsAggCount">0</div><div class="small muted">實際寫入資料庫</div></div>
+      </div>
+      <div id="dmsValidation" class="status"></div>
+      <div class="muted" style="margin:10px 0">點「展開」可核對：中心 → Group → 餐廳。Group TC 由逐筆訂單的 AC 自動彙總。</div>
+      <div class="tablewrap"><table class="tbl"><thead><tr><th>層級</th><th>中心 / Group / 餐廳</th><th>日期</th><th>TC</th><th>OWN</th><th>第三方</th><th>第三方%</th><th>30分彙總筆數</th><th></th></tr></thead><tbody id="dmsPreviewBody"></tbody></table></div>
+      <div id="dmsDrill" class="hidden" style="margin-top:14px"></div>
+      <div class="actions"><button class="btn" id="dmsSaveBtn">確認更新 DMS 歷史資料</button></div>
+      <div id="dmsSaveStatus" class="status">尚未寫入。</div>
+    </div>
+  </section>
+
+  <section id="demand" class="page">
+    <div class="card">
+      <h2>系統 TC 需求預測</h2>
+      <div class="muted">第一階段採可解釋預測：以 Supabase 的實際 DMS 30分鐘資料為基礎，優先使用同星期歷史；若資料不足，再使用近期同 Group / 餐廳資料。預測使用「落單時間」，不使用班表內的預估 TC。</div>
+      <div class="grid" style="margin-top:14px">
+        <label>中心<select id="fcCenter"></select></label>
+        <label>預測日期<input id="fcDate" type="date"></label>
+        <label>歷史回看<select id="fcLookback"><option value="56">8週</option><option value="84">12週</option><option value="180">6個月</option><option value="730" selected>24個月</option></select></label>
+      </div>
+      <div class="actions"><button class="btn" id="fcRun">產生 TC 預測</button><button class="btn ghost" id="fcCompareBtn">歷史日比較</button></div>
+      <div id="fcStatus" class="status">請選擇中心與預測日期。</div>
+    </div>
+
+    <div id="fcResult" class="hidden">
+      <div class="card">
+        <h2 id="fcTitle">預測摘要</h2>
+        <div class="grid">
+          <div class="kpi"><div class="l">系統預測 TC</div><div class="v" id="fcTc">—</div><div class="small muted" id="fcTcNote"></div></div>
+          <div class="kpi"><div class="l">系統OWN 建議承接 TC</div><div class="v" id="fcOwn">—</div><div class="small muted">供後續人力需求計算</div></div>
+          <div class="kpi"><div class="l">歷史參考日</div><div class="v" id="fcRefs">—</div><div class="small muted" id="fcRefDates"></div></div>
+          <div class="kpi"><div class="l">信心</div><div class="v" id="fcConf">—</div><div class="small muted" id="fcConfNote"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Group × 30分鐘系統預測</h2>
+        <div class="muted">點 Group 可查看餐廳來源與每個30分鐘的歷史參考值。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>歷史平均第三方（僅參考）%</th><th>參考樣本</th><th></th></tr></thead><tbody id="fcGroupBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>時段需求分布</h2><div class="status" style="background:#eef4ff;border-color:#b2ccff;color:#1849a9"><b>欄位說明：</b>「預測總 TC」＝系統預測全部外送訂單；「OWN 建議承接 TC」＝依當日班表可配送人力估算；「第三方建議 TC」＝總需求扣除 OWN 建議承接。歷史第三方%只作參考，不再用來拆未來 OWN。</div>
+        <div class="muted">依預測落單時間彙總；可先看午餐、下午餐、晚餐、消夜的需求集中程度。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>時段</th><th>時間</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>TC占比</th><th>歷史第三方%（僅參考）</th></tr></thead><tbody id="fcPeriodBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>需求高峰 TOP 10</h2>
+        <div class="muted">找出「Group × 30分鐘」需求高峰；OWN 建議承接依當日班表能力估算，剩餘需求才是第三方建議量。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>排名</th><th>時間</th><th>Group</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>第三方建議</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="fcPeakBody"></tbody></table></div>
+      </div>
+      <div id="fcCompare" class="card hidden"></div>
+      <div id="fcDetail" class="card hidden"></div>
+    </div>
+  </section>
+  <section id="analysis" class="page">
+    <div class="card">
+      <h2>班表 × TC需求分析</h2>
+      <div class="muted">把 Supabase 的班表與 DMS 基準預測接在一起。值班主管不列入可配送人力；目前人力需求先用「歷史 OWN TC ÷ 歷史實際外送員工時」估算 Group × 30分鐘的實際生產力，再套用到OWN 建議承接 TC。</div>
+      <div class="grid" style="margin-top:14px">
+        <label>中心<select id="anCenter"></select></label>
+        <label>分析日期<input id="anDate" type="date"></label>
+        <label>歷史回看<select id="anLookback"><option value="56">8週</option><option value="84">12週</option><option value="180">6個月</option><option value="730" selected>24個月</option></select></label>
+      </div>
+      <div class="actions"><button class="btn" id="anRun">產生人力分析</button></div>
+      <div id="anStatus" class="status">請選擇已匯入班表的日期。</div>
+    </div>
+    <div id="anResult" class="hidden">
+      <div class="card">
+        <h2 id="anTitle">分析摘要</h2>
+        <div class="grid">
+          <div class="kpi"><div class="l">系統OWN 建議承接 TC</div><div class="v" id="anOwn">—</div><div class="small muted">落單時間需求</div></div>
+          <div class="kpi"><div class="l">排班外送員工時</div><div class="v" id="anHours">—</div><div class="small muted">已扣值班主管</div></div>
+          <div class="kpi"><div class="l">全日預估 TPLH</div><div class="v" id="anTplh">—</div><div class="small muted">OWN 建議承接 TC ÷ 外送員工時</div></div>
+          <div class="kpi"><div class="l">需關注時段</div><div class="v" id="anAlerts">—</div><div class="small muted">Group × 30分鐘</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Group 人力摘要</h2>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>系統OWN 建議承接 TC</th><th>排班工時</th><th>全日 TPLH</th><th>不足時段</th><th>偏緊時段</th><th></th></tr></thead><tbody id="anGroupBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>優先處理時段</h2>
+        <div class="muted">先列人力不足，再列人力偏緊；連續30分鐘時段會合併成一個事件。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>狀態</th><th>Group</th><th>時間</th><th>系統OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>缺口</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="anAlertBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>天氣預測</h2>
+        <div class="muted">依外送中心所在城市讀取可取得的逐小時天氣預報。天氣目前作為營運風險提示，不直接任意加減 TC；待累積歷史天氣與 DMS 後再校準雨天對需求與配送效率的實際影響。</div>
+        <div id="wxSummary" class="status">產生人力分析時會同步讀取天氣。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>時間</th><th>天氣</th><th>降雨機率</th><th>降雨量</th><th>風速</th><th>營運風險</th></tr></thead><tbody id="wxBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>營運策略</h2>
+        <div class="muted">建議順序：跨 Group 支援 → 第三方 → 縮小外送距離 → 調整 QT → 最後才考慮停單。系統只提出建議，不會自動執行。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>優先</th><th>Group</th><th>時間</th><th>狀況</th><th>建議動作</th><th>原因</th></tr></thead><tbody id="opsBody"></tbody></table></div>
+      </div>
+      <div id="anDetail" class="card hidden"></div>
+    </div>
+  </section>
+  <section id="promo" class="page">
+    <div class="grid">
+      <div class="card kpi"><div class="l">促銷活動</div><div class="v" id="promoCount">0</div><div class="small muted">目前瀏覽器已建立</div></div>
+      <div class="card kpi"><div class="l">颱風／停班停課</div><div class="v" id="typhoonCount">0</div><div class="small muted">特殊事件標記</div></div>
+      <div class="card kpi"><div class="l">分析起始時間</div><div class="v">11:00</div><div class="small muted">11:00 前不匯入、不分析</div></div>
+      <div class="card kpi"><div class="l">套用方式</div><div class="v" style="font-size:18px">日期＋範圍</div><div class="small muted">中心／Group／全市場</div></div>
+    </div>
+    <div class="split">
+      <div class="card">
+        <h2>促銷活動標記</h2>
+        <div class="muted">新增會影響 TC 判讀的促銷或特殊活動。此版先保存在目前瀏覽器，並在預測頁顯示當日標記；不會自行假設促銷增幅。</div>
+        <label>活動名稱</label><input id="promoName" placeholder="例如：299 炸雞桶" style="width:100%">
+        <div class="grid" style="grid-template-columns:repeat(2,1fr)">
+          <div><label>開始日期</label><input id="promoStart" type="date" style="width:100%"></div>
+          <div><label>結束日期</label><input id="promoEnd" type="date" style="width:100%"></div>
+          <div><label>時段</label><select id="promoPeriod" style="width:100%"><option>全日</option><option>午餐</option><option>下午餐</option><option>晚餐</option><option>消夜</option></select></div>
+          <div><label>範圍</label><select id="promoScope" style="width:100%"><option value="center">目前中心</option><option value="all">全市場</option><option value="group">指定 Group</option></select></div>
+        </div>
+        <label>Group（指定 Group 時填寫）</label><select id="promoGroup" style="width:100%"><option value="">—</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option><option>I</option></select>
+        <label>備註</label><input id="promoNote" placeholder="例如：滿800免運＋送蛋塔" style="width:100%">
+        <div class="actions"><button class="btn" id="promoAdd">＋ 新增促銷</button></div>
+      </div>
+      <div class="card">
+        <h2>颱風／停班停課標記</h2>
+        <div class="muted">用來標記颱風、豪雨、停班停課等異常日。這些日期會在歷史參考日中標示，避免把特殊日當成一般日解讀。</div>
+        <label>事件名稱</label><input id="typhoonName" placeholder="例如：颱風／豪雨" style="width:100%">
+        <div class="grid" style="grid-template-columns:repeat(2,1fr)">
+          <div><label>開始日期</label><input id="typhoonStart" type="date" style="width:100%"></div>
+          <div><label>結束日期</label><input id="typhoonEnd" type="date" style="width:100%"></div>
+        </div>
+        <label>影響類型</label><select id="typhoonType" style="width:100%"><option>颱風影響</option><option>豪雨</option><option>停班停課</option><option>颱風＋停班停課</option></select>
+        <label>影響範圍</label><select id="typhoonScope" style="width:100%"><option value="center">目前中心</option><option value="all">全市場</option></select>
+        <label>備註</label><input id="typhoonNote" placeholder="例如：QT 延長／縮小外送範圍" style="width:100%">
+        <div class="actions"><button class="btn" id="typhoonAdd">＋ 新增颱風標記</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>已建立的促銷／特殊事件</h2>
+      <div class="tablewrap"><table class="tbl"><thead><tr><th>類型</th><th>名稱</th><th>日期</th><th>範圍</th><th>時段／影響</th><th>備註</th><th></th></tr></thead><tbody id="eventBody"></tbody></table></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
+const SUPABASE_KEY='sb_publishable_s2X20yOktFUD9uQ1JeMiwg_dWDNsv9j';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const CENTERS={I997:'台北',I994:'新北',I995:'桃園',I996:'台中',I998:'台南',I981:'高雄'};
+let profile=null, session=null, activeCenter=null, parsed=[], parsedUploads=[], currentShifts=[], selectedDate=null, dmsAgg=[], dmsMeta=null, fcData=null, anData=null;
+
+const $=id=>document.getElementById(id);
+function status(el,msg,type=''){el.textContent=msg;el.className='status'+(type?' '+type:'')}
+
+function opMinute(v){
+  if(v==null)return 99999;
+  const z=String(v).match(/(\d{1,2}):(\d{2})/); if(!z)return 99999;
+  let h=Number(z[1]),m=Number(z[2]); if(h<6)h+=24; return h*60+m;
+}
+function sortByOpTime(arr,key='time'){return [...arr].sort((a,b)=>opMinute(a[key])-opMinute(b[key]))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function isoDate(v){
+ if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+ let s=String(v||'').trim();
+ let m=s.match(/(20\d{2})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+ if(!m) return null;
+ return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+}
+function timeStr(hours){
+ let mins=Math.round(hours*60), h=Math.floor(mins/60), m=mins%60;
+ return `${String(h%24).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`;
+}
+function displayTime(t){
+ if(!t)return ''; let [h,m]=t.split(':').map(Number); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function dateAdd(d,n){let x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)}
+function fmtDate(d){if(!d)return '—';let x=new Date(d+'T00:00:00');return `${x.getMonth()+1}/${x.getDate()}`}
+function colToNum(s){let n=0;for(const c of s)n=n*26+c.charCodeAt(0)-64;return n}
+
+async function loadProfile(sess){
+ session=sess;
+ const {data,error}=await sb.from('profiles').select('user_id,display_name,role,center_id,active').eq('user_id',sess.user.id).single();
+ if(error) throw new Error('讀取 profiles 失敗：'+error.message);
+ if(!data.active) throw new Error('此帳號已停用');
+ profile=data;
+ $('loginView').classList.add('hidden');$('appView').classList.remove('hidden');$('appHeader')?.classList.remove('hidden');
+ $('welcome').textContent=(data.display_name||'使用者')+'，您好';$('account').textContent=sess.user.email;
+ $('roleBadge').textContent=data.role==='op_admin'?'OP 管理員':'中心帳號';
+ $('dmsNav').classList.toggle('hidden',data.role!=='op_admin');
+ const fcc=$('fcCenter'); if(fcc){fcc.innerHTML=''; const cs=data.role==='op_admin'?['I997','I994','I995','I996','I998','I981']:[data.center_id]; cs.filter(Boolean).forEach(c=>{let o=document.createElement('option');o.value=c;o.textContent=c;fcc.appendChild(o)}); if(activeCenter&&cs.includes(activeCenter))fcc.value=activeCenter;}
+ if(data.role==='op_admin')setTimeout(loadDmsDbStatus,0);
+ const anc=$('anCenter');if(anc){anc.innerHTML='';const acs=data.role==='op_admin'?['I997','I994','I995','I996','I998','I981']:[data.center_id];acs.filter(Boolean).forEach(c=>{let o=document.createElement('option');o.value=c;o.textContent=c;anc.appendChild(o)});if(activeCenter&&acs.includes(activeCenter))anc.value=activeCenter;}
+ const sel=$('centerSelect'); sel.innerHTML='';
+ const allowed=data.role==='op_admin'?Object.keys(CENTERS):[data.center_id];
+ allowed.forEach(id=>{let o=document.createElement('option');o.value=id;o.textContent=id+'｜'+CENTERS[id];sel.appendChild(o)});
+ activeCenter=allowed[0]; sel.value=activeCenter; sel.disabled=data.role!=='op_admin';
+ await loadSchedule();
+}
+async function restore(){const {data}=await sb.auth.getSession();if(data.session){try{await loadProfile(data.session)}catch(e){status($('loginStatus'),e.message,'bad')}}}
+$('loginBtn').onclick=async()=>{let email=$('email').value.trim(),password=$('password').value;if(!email||!password)return status($('loginStatus'),'請輸入 Email 與 Password。','bad');status($('loginStatus'),'登入中…');const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)return status($('loginStatus'),'登入失敗：'+error.message,'bad');try{await loadProfile(data.session)}catch(e){status($('loginStatus'),e.message,'bad')}};
+$('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
+$('centerSelect').onchange=async e=>{activeCenter=e.target.value;resetPreview();await loadSchedule()};
+
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active')});
+
+function parseWorkbook(file, ab){
+ const wb=XLSX.read(ab,{type:'array',cellDates:true});
+ const ws=wb.Sheets['服務組班表-KFC']||wb.Sheets[wb.SheetNames[0]];
+ if(!ws) throw new Error(file.name+'：找不到工作表');
+ const n1=String(ws['N1']?.v||'').trim();
+ const ag1=ws['AG1']?.v;
+ const m=n1.match(/(I\d{3}).*?([A-Z])\s*$/i);
+ const center=m?m[1].toUpperCase():null, region=m?m[2].toUpperCase():null;
+ const date=isoDate(ag1);
+ if(!center||!region) throw new Error(file.name+'：無法從 N1 辨識中心/區域（目前值：'+n1+'）');
+ if(!date) throw new Error(file.name+'：無法從 AG1 辨識日期');
+ let scheduleTcSlots={}, scheduleTcTotal=0;
+ // KFC 公版：第2列「預估 TC」，D:AS 為 06:00–26:30，每30分鐘一格。
+ for(let c=3;c<=44;c++){
+   const raw=ws[XLSX.utils.encode_cell({r:1,c})]?.v;
+   const v=Number(raw??0), hh=6+(c-3)*0.5, key=timeStr(hh).slice(0,5);
+   scheduleTcSlots[key]=Number.isFinite(v)?v:0;
+   scheduleTcTotal+=Number.isFinite(v)?v:0;
+ }
+ let out=[];
+ const range=XLSX.utils.decode_range(ws['!ref']||'A1:BD200');
+ for(let r=7;r<=range.e.r;r++){ // zero based row 8+
+   let raw=String(ws[XLSX.utils.encode_cell({r,c:1})]?.v||'').trim();
+   if(!raw) continue;
+   if(['時段','差異工時'].includes(raw)) continue;
+   let name=raw.split(/\n/)[0].replace(/^　+/,'').trim();
+   if(!name) continue;
+   let active=[], breaks=[];
+   for(let c=3;c<=44;c++){ // D:AS
+     let v=String(ws[XLSX.utils.encode_cell({r,c})]?.v||'').trim();
+     if(v && v!==';;;'){
+       let h=6+(c-3)*0.5;
+       active.push(h);
+       if(v.includes('-1')) breaks.push(h);
+     }
+   }
+   if(!active.length) continue;
+   let start=Math.min(...active), end=Math.max(...active)+0.5;
+   out.push({center_id:center,region_code:region,employee_name:name,employee_code:null,role:'rider',
+             work_date:date,start_time:timeStr(start),end_time:timeStr(end),
+             break_minutes:breaks.length*30,source_name:file.name});
+ }
+ return {center_id:center,region_code:region,work_date:date,source_name:file.name,shifts:out,schedule_tc_total:scheduleTcTotal,schedule_tc_30m:scheduleTcSlots};
+}
+async function parseFiles(){
+ const files=[...$('scheduleFiles').files]; if(!files.length)return status($('parseStatus'),'請先選擇 Excel。','bad');
+ parsed=[]; status($('parseStatus'),'解析中…');
+ try{
+  parsedUploads=[];
+  for(const f of files){
+    const ab=await f.arrayBuffer();
+    const result=parseWorkbook(f,ab);
+    parsedUploads.push({center_id:result.center_id,region_code:result.region_code,work_date:result.work_date,source_name:result.source_name,shift_count:result.shifts.length,schedule_tc_total:result.schedule_tc_total,schedule_tc_30m:result.schedule_tc_30m});
+    parsed.push(...result.shifts);
+  }
+  const centers=[...new Set(parsedUploads.map(x=>x.center_id))], dates=[...new Set(parsedUploads.map(x=>x.work_date))].sort(), regions=[...new Set(parsedUploads.map(x=>x.region_code))].sort();
+  $('pCenter').textContent=centers.join(',');$('pDates').textContent=fmtDate(dates[0])+(dates.length>1?'–'+fmtDate(dates.at(-1)):'');$('pRegions').textContent=regions.join('、');$('pCount').textContent=parsed.length;
+  let issues=[];
+  if(centers.length>1)issues.push('檔案包含多個中心，不能一起寫入。');
+  if(centers[0]!==activeCenter)issues.push(`目前畫面是 ${activeCenter}，但檔案屬於 ${centers[0]}。`);
+  const duplicates=new Set(), seen=new Set();
+  parsed.forEach(x=>{let k=[x.center_id,x.region_code,x.employee_name,x.work_date,x.start_time,x.end_time].join('|');if(seen.has(k))duplicates.add(k);seen.add(k)});
+  if(duplicates.size)issues.push(`偵測到 ${duplicates.size} 筆完全重複班別。`);
+  if(!regions.length)issues.push('沒有辨識到區域。');
+  const zeroAreas=parsedUploads.filter(x=>x.shift_count===0).map(x=>x.region_code);
+  if(zeroAreas.length) issues.push(`已上傳但 0 人排班：${[...new Set(zeroAreas)].sort().join('、')}。這些區域會被記錄為「已上傳／0人」，不是漏檔。`);
+  status($('validation'),issues.length?'檢查完成：'+issues.join(' '):`檢查完成：${files.length} 個檔案、${dates.length} 個日期、${regions.length} 個區域、${parsed.length} 筆班別。`,issues.length?'warn':'ok');
+  $('coveragePreview').innerHTML='<b>本次檔案狀態</b><br>'+parsedUploads.sort((a,b)=>a.region_code.localeCompare(b.region_code)).map(u=>`${esc(u.region_code)}區｜已上傳｜${u.shift_count===0?'<b>0人排班</b>':u.shift_count+'人'}`).join('<br>');
+  renderPreview();
+  $('previewCard').classList.remove('hidden');
+  status($('parseStatus'),`已解析 ${files.length} 個檔案；辨識 ${regions.length} 個區域。已讀取 KFC 公版班表預估 TC。`,'ok');
+  $('saveBtn').disabled=centers.length!==1||centers[0]!==activeCenter;
+ }catch(e){status($('parseStatus'),'解析失敗：'+e.message,'bad')}
+}
+function renderPreview(){
+ const body=$('previewBody');body.innerHTML='';
+ parsed.forEach((x,i)=>{let tr=document.createElement('tr');tr.innerHTML=`<td>${esc(x.work_date)}</td><td>${esc(x.region_code)}</td><td><b>${esc(x.employee_name)}</b></td><td>${displayTime(x.start_time)}</td><td>${displayTime(x.end_time)}</td><td>${x.break_minutes} 分</td><td><select data-role="${i}"><option value="rider"${x.role==='rider'?' selected':''}>外送員</option><option value="duty_manager"${x.role==='duty_manager'?' selected':''}>值班經理</option></select></td><td class="small muted">${esc(x.source_name)}</td>`;body.appendChild(tr)});
+ body.querySelectorAll('select[data-role]').forEach(s=>s.onchange=()=>parsed[+s.dataset.role].role=s.value);
+}
+function resetPreview(){$('scheduleFiles').value='';parsed=[];parsedUploads=[];$('previewCard').classList.add('hidden');status($('parseStatus'),'尚未選擇檔案。');$('previewBody').innerHTML=''}
+$('parseBtn').onclick=parseFiles;$('resetPreview').onclick=resetPreview;
+
+async function scheduleRetry(label,fn,max=3){
+ let last;
+ for(let i=1;i<=max;i++){
+   try{
+     const r=await fn();
+     if(r?.error)throw r.error;
+     return r;
+   }catch(e){
+     last=e;
+     status($('saveStatus'),`${label}失敗（${i}/${max}）：${e.message||e}${i<max?'，1秒後重試…':''}`,'bad');
+     if(i<max)await new Promise(r=>setTimeout(r,1000));
+   }
+ }
+ throw new Error(`${label}：${last?.message||last}`);
+}
+async function saveSchedule(){
+ if(!parsedUploads.length)return status($('saveStatus'),'請先解析班表。','bad');
+ const centers=[...new Set(parsedUploads.map(x=>x.center_id))];
+ if(centers.length!==1||centers[0]!==activeCenter)return status($('saveStatus'),`中心不一致：目前畫面 ${activeCenter||'—'}，檔案 ${centers.join('、')||'—'}。`,'bad');
+ const dates=[...new Set(parsedUploads.map(x=>x.work_date))].sort();
+ const scopes=parsedUploads.map(x=>`${x.work_date} ${x.region_code}（${x.shift_count}人）`).join('、');
+ if(!confirm(`確認更新 ${activeCenter} 班表？\n${scopes}\n\n只覆蓋本次上傳的「同日期＋同Group」，其他日期與Group保留。`))return;
+ const btn=$('saveBtn');btn.disabled=true;
+ try{
+   const weekMap={};
+   status($('saveStatus'),'步驟 1/5：檢查週班表容器…');
+   for(const d of dates){
+     const dt=new Date(d+'T12:00:00'),day=(dt.getDay()+6)%7,ws=dateAdd(d,-day),we=dateAdd(ws,6);
+     const rr=await scheduleRetry(`讀取 ${ws} 週班表`,()=>sb.from('schedule_weeks').select('id,center_id,week_start,week_end').eq('center_id',activeCenter).eq('week_start',ws).limit(1));
+     if(rr.data?.length){weekMap[d]=rr.data[0].id;continue}
+     // Use only known core columns. This avoids failures caused by optional audit columns differing between schema versions.
+     const ins=await scheduleRetry(`建立 ${ws} 週班表`,()=>sb.from('schedule_weeks').insert({center_id:activeCenter,week_start:ws,week_end:we,source_name:'每日增量匯入'}).select('id').single());
+     weekMap[d]=ins.data.id;
+   }
+
+   status($('saveStatus'),'步驟 2/5：清除本次日期＋Group舊班別…');
+   for(const u of parsedUploads){
+     await scheduleRetry(`清除 ${u.work_date} ${u.region_code} Group`,()=>sb.from('schedule_shifts').delete().eq('week_id',weekMap[u.work_date]).eq('center_id',activeCenter).eq('work_date',u.work_date).eq('region_code',u.region_code));
+   }
+
+   status($('saveStatus'),'步驟 3/5：寫入班別…');
+   const rows=parsed.map(x=>({
+     week_id:weekMap[x.work_date],center_id:x.center_id,region_code:x.region_code,
+     employee_code:x.employee_code||null,employee_name:x.employee_name,role:x.role||'rider',
+     work_date:x.work_date,start_time:x.start_time,end_time:x.end_time,break_minutes:Number(x.break_minutes||0)
+   }));
+   for(let i=0;i<rows.length;i+=50){
+     const part=rows.slice(i,i+50);
+     await scheduleRetry(`寫入班別 ${i+1}–${i+part.length}`,()=>sb.from('schedule_shifts').insert(part));
+     status($('saveStatus'),`步驟 3/5：已寫入 ${Math.min(i+part.length,rows.length)} / ${rows.length} 筆…`);
+   }
+
+   status($('saveStatus'),'步驟 4/5：更新 Group 匯入狀態…');
+   for(const u of parsedUploads){
+     const row={center_id:activeCenter,week_id:weekMap[u.work_date],work_date:u.work_date,region_code:u.region_code,shift_count:Number(u.shift_count||0),source_name:u.source_name||'班表匯入',schedule_tc_total:Number(u.schedule_tc_total||0),schedule_tc_30m:u.schedule_tc_30m||{}};
+     await scheduleRetry(`更新 ${u.work_date} ${u.region_code} Group 狀態`,()=>sb.from('schedule_import_coverage').upsert(row,{onConflict:'center_id,work_date,region_code'}));
+   }
+
+   status($('saveStatus'),'步驟 5/5：驗證資料庫…');
+   let saved=0;
+   for(const d of dates){
+     const rr=await scheduleRetry(`驗證 ${d}`,()=>sb.from('schedule_shifts').select('id',{count:'exact',head:true}).eq('center_id',activeCenter).eq('work_date',d));
+     saved+=rr.count||0;
+   }
+   await loadSchedule();
+   const zero=parsedUploads.filter(x=>Number(x.shift_count)===0).map(x=>x.region_code);
+   status($('saveStatus'),`✓ 班表更新成功：本次 ${parsedUploads.length} 個 Group、${rows.length} 筆班別；資料庫驗證 ${saved} 筆${zero.length?'；0人 Group：'+zero.join('、'):''}。`,'ok');
+ }catch(e){
+   const msg=e?.message||String(e);
+   status($('saveStatus'),`班表寫入中止：${msg}｜請保留此訊息；目前可直接判斷是第幾步與哪個資料表失敗。`,'bad');
+ }finally{btn.disabled=false}
+}
+$('scheduleDbTestBtn').onclick=async()=>{
+ if(!session)return status($('saveStatus'),'請先登入。','bad');
+ try{
+   status($('saveStatus'),'正在測試 schedule_weeks / schedule_shifts / schedule_import_coverage…');
+   const tests=[];
+   for(const t of ['schedule_weeks','schedule_shifts','schedule_import_coverage']){
+     const {data,error}=await sb.from(t).select('*').limit(1);
+     tests.push(`${t}：${error?'✗ '+error.message:'✓ 可讀取'}`);
+   }
+   const bad=tests.some(x=>x.includes('✗'));
+   status($('saveStatus'),tests.join('｜'),bad?'bad':'ok');
+ }catch(e){status($('saveStatus'),'班表資料庫測試失敗：'+(e.message||e),'bad')}
+};
+
+$('saveBtn').onclick=saveSchedule;
+$('clearCurrentBtn').onclick=async()=>{if(!confirm(`確定清除 ${activeCenter} 所有目前已匯入班表？DMS、促銷、節日不會刪除。`))return;const {error}=await sb.from('schedule_weeks').delete().eq('center_id',activeCenter);if(error)return status($('saveStatus'),'清除失敗：'+error.message,'bad');status($('saveStatus'),'目前中心班表已清除。','ok');await loadSchedule()};
+$('refreshSchedule').onclick=loadSchedule;
+
+async function loadSchedule(){
+ const {data:weeks,error}=await sb.from('schedule_weeks').select('id,week_start,week_end,imported_at').eq('center_id',activeCenter).order('imported_at',{ascending:false}).limit(1);
+ if(error){$('scheduleEmpty').textContent='讀取失敗：'+error.message;return}
+ if(!weeks?.length){currentShifts=[];$('scheduleEmpty').classList.remove('hidden');$('stairWrap').classList.add('hidden');$('dayTabs').innerHTML='';return}
+ const w=weeks[0],a=await sb.from('schedule_shifts').select('*').eq('week_id',w.id).order('work_date').order('start_time'),b=await sb.from('schedule_import_coverage').select('*').eq('week_id',w.id);
+ if(a.error){$('scheduleEmpty').textContent='讀取班別失敗：'+a.error.message;return}
+ currentShifts=a.data||[];window.currentCoverage=b.data||[];
+ const dates=[...new Set([...currentShifts.map(x=>x.work_date),...window.currentCoverage.map(x=>x.work_date)])].sort();selectedDate=selectedDate&&dates.includes(selectedDate)?selectedDate:(dates[0]||null);renderDayTabs(dates);await renderStair();
+}
+function renderDayTabs(dates){const box=$('dayTabs');box.innerHTML='';dates.forEach(d=>{let b=document.createElement('button'),dt=new Date(d+'T12:00:00'),zh=['日','一','二','三','四','五','六'];b.textContent=`${zh[dt.getDay()]} ${fmtDate(d)}`;if(d===selectedDate)b.classList.add('active');b.onclick=async()=>{selectedDate=d;renderDayTabs(dates);await renderStair()};box.appendChild(b)})}
+function forecastSuggestedOwn(totalTc,center,date,time,group=null){
+ const rs=(currentShifts||[]).filter(x=>x.work_date===date&&(!group||x.region_code===group));
+ if(!rs.length)return null;
+ return suggestedOwnForSlot(totalTc,rs,time);
+}
+function suggestedOwnForSlot(totalTc,rows,time){
+ const riders=rows.filter(x=>x.role!=='duty_manager'&&slotActive(x,time)).length;
+ // 暫用班表可配送人數作為30分鐘承接上限；不再使用歷史第三方比例拆 OWN。
+ // 後續由歷史實際配送效率模型取代此上限。
+ return Math.min(Number(totalTc||0),riders);
+}
+function slotActive(x,t){let [hh,mm]=t.split(':').map(Number),q=hh+mm/60,[sh,sm]=x.start_time.split(':').map(Number),[eh,em]=x.end_time.split(':').map(Number),st=sh+sm/60,en=eh+em/60;if(en<=st)en+=24;if(q<st&&en>24)q+=24;return q>=st&&q<en}
+async function publicDayMetrics(rows){
+ const cov=(window.currentCoverage||[]).filter(x=>x.work_date===selectedDate),tc30={};let scheduleTc=0;
+ for(const c of cov){scheduleTc+=Number(c.schedule_tc_total||0);for(const [t,v] of Object.entries(c.schedule_tc_30m||{}))tc30[t]=(tc30[t]||0)+Number(v||0)}
+ let fc=null;try{const hist=await loadForecastHistory(activeCenter,selectedDate,730);if(hist.length)fc=buildForecast(hist,selectedDate)}catch(e){}
+ const sys30={},own30={};if(fc)for(const x of fc.pred){let t=x.time.slice(0,5);if(opMinute(t)<660)continue;sys30[t]=(sys30[t]||0)+x.tc}
+ for(const [t,v] of Object.entries(sys30))own30[t]=suggestedOwnForSlot(v,rows,t);
+ const riderRows=rows.filter(x=>x.role!=='duty_manager'),hours=riderRows.reduce((p,x)=>p+shiftHours(x),0),sys=Object.values(sys30).reduce((a,b)=>a+b,0),own=Object.values(own30).reduce((a,b)=>a+b,0);
+ return {tc30,scheduleTc,sys30,own30,sys,own,hours};
+}
+async function renderStair(){
+ setCurrentForecastDate(selectedDate); const rows=currentShifts.filter(x=>x.work_date===selectedDate);if(!rows.length){$('scheduleEmpty').classList.remove('hidden');$('stairWrap').classList.add('hidden');return}
+ $('scheduleEmpty').classList.add('hidden');$('stairWrap').classList.remove('hidden');const m=await publicDayMetrics(rows),times=[];for(let h=6;h<27;h+=.5)times.push(`${String(Math.floor(h)%24).padStart(2,'0')}:${h%1?'30':'00'}`);
+ $('scheduleTitle').textContent=`${activeCenter} ${CENTERS[activeCenter]||''}｜${selectedDate} 服務組班表`;$('kScheduleTc').textContent=m.scheduleTc?Math.round(m.scheduleTc).toLocaleString():'—';$('kSystemTc').textContent=m.sys?Math.round(m.sys).toLocaleString():'—';$('kSystemOwn').textContent=m.own?Math.round(m.own).toLocaleString():'—';$('kPlanTplh').textContent=m.hours&&m.own?(m.own/m.hours).toFixed(2):'—';
+ if(m.scheduleTc&&m.sys){let d=m.sys-m.scheduleTc;$('kTcDiff').textContent=`較班表 TC ${d>=0?'+':''}${Math.round(d)}（${d>=0?'+':''}${(d/m.scheduleTc*100).toFixed(1)}%）`}else $('kTcDiff').textContent='DMS 歷史總需求模型';
+ const dayAlerts=(anData&&anData.center===activeCenter&&anData.date===selectedDate)?anData.alerts.filter(x=>x.status==='人力不足'||x.status==='人力偏緊').length:null;
+ if($('scheduleOpsSummary')) $('scheduleOpsSummary').innerHTML=`<b>排班外送員工時：</b>${m.hours?round1(m.hours)+' h':'—'}　｜　<b>需關注時段：</b>${dayAlerts==null?'請先執行班表分析':dayAlerts+' 個'}　｜　<b>值班主管：</b>不計配送人力`;
+ 
+ let h='<table id="publicScheduleTable"><thead><tr><th colspan="3">服務組班表</th>'+times.map((t,i)=>`<th>${i%2===0?t.slice(0,2):''}</th>`).join('')+'</tr><tr><th>Group</th><th>姓名</th><th>角色</th>'+times.map(t=>`<th>${t.slice(3)}</th>`).join('')+'</tr></thead><tbody>';
+ const metric=(cls,label,obj)=>{h+=`<tr class="metric ${cls}"><td colspan="3">${label}</td>`+times.map(t=>`<td>${obj[t]?round1(obj[t]):''}</td>`).join('')+'</tr>'};metric('schedule-tc','班表 TC',m.tc30);metric('system-tc','系統預測 TC',m.sys30);metric('system-tc','OWN 建議承接 TC',m.own30);
+ const cap={};for(const t of times)cap[t]=rows.filter(x=>x.role!=='duty_manager'&&slotActive(x,t)).length;h+=`<tr class="metric capacity"><td colspan="3">可配送人力</td>`+times.map(t=>`<td>${cap[t]}</td>`).join('')+'</tr>';
+ for(const g of [...new Set(rows.map(x=>x.region_code))].sort()){h+=`<tr><td class="regionhead" colspan="${times.length+3}">${esc(g)} Group</td></tr>`;for(const x of rows.filter(r=>r.region_code===g).sort((a,b)=>opMinute(a.start_time)-opMinute(b.start_time))){let breakSlots=Number(x.break_minutes||0)/30,[sh,sm]=x.start_time.split(':').map(Number),[eh,em]=x.end_time.split(':').map(Number),st=sh+sm/60,en=eh+em/60;if(en<=st)en+=24;let mid=st+(en-st)/2,bs=breakSlots?mid-breakSlots/2:null;h+=`<tr><td>${esc(g)}</td><td class="name">${esc(x.employee_name)}</td><td class="personmeta">${x.role==='duty_manager'?'值班主管':'外送員'}</td>`;for(const t of times){let [hh,mm]=t.split(':').map(Number),q=hh+mm/60;if(q<st&&en>24)q+=24;let cls='',lab='';if(q>=st&&q<en){cls='on'+(x.role==='duty_manager'?' manager':'');lab='●';if(breakSlots&&q>=bs&&q<bs+breakSlots*.5){cls='break'+(x.role==='duty_manager'?' manager':'');lab='休'}}h+=`<td class="${cls}">${lab}</td>`}h+='</tr>'}}
+ h+='</tbody></table>';$('stairWrap').innerHTML=h;
+}
+
+function addOneDay(s){let d=new Date(s+'T12:00:00');d.setDate(d.getDate()+1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+async function loadDmsDbStatus(){
+ if(!session||profile?.role!=='op_admin')return;
+ try{
+   status($('centerFreshness'),'正在讀取 Supabase DMS 資料狀態…');
+   const {data:minRows,error:e1}=await sb.from('dms_30m').select('business_date').order('business_date',{ascending:true}).limit(1);if(e1)throw e1;
+   const {data:maxRows,error:e2}=await sb.from('dms_30m').select('business_date').order('business_date',{ascending:false}).limit(1);if(e2)throw e2;
+   const min=minRows?.[0]?.business_date,max=maxRows?.[0]?.business_date;
+   $('dbLatest').textContent=max||'尚無資料';$('dbRange').textContent=min&&max?`目前範圍 ${min} ～ ${max}`:'資料庫尚無 DMS';
+   $('dbNext').textContent=max?addOneDay(max):'—';
+   const parts=[];
+   // Fixed center IDs for DB freshness check. Do not depend on the UI CENTERS object/array shape.
+   const dmsCenterIds=['I997','I994','I995','I996','I998','I981'];
+   for(const c of dmsCenterIds){
+     const {data,error}=await sb.from('dms_30m').select('business_date').eq('center_id',c).order('business_date',{ascending:false}).limit(1);
+     if(error)throw error;parts.push({c,d:data?.[0]?.business_date||null});
+   }
+   const lag=parts.filter(x=>max&&x.d!==max);
+   status($('centerFreshness'),parts.map(x=>`${x.c}：${x.d||'無資料'}`).join('　')+(lag.length?`　⚠ ${lag.map(x=>x.c).join('、')} 未到全市場最新日`:'　✓ 六中心資料日期一致'),lag.length?'bad':'ok');
+   const last=JSON.parse(localStorage.getItem('delivery_op_last_dms_import')||'null');
+   if(last){$('lastImportEnd').textContent=last.end;$('lastImportRange').textContent=`${last.start} ～ ${last.end}｜${Number(last.orders||0).toLocaleString()}筆｜${new Date(last.saved_at).toLocaleString('zh-TW')}`;}
+ }catch(e){status($('centerFreshness'),'資料庫狀態讀取失敗：'+(e.message||e),'bad')}
+}
+$('refreshDmsStatus').onclick=loadDmsDbStatus;
+
+function dmsParts(v){
+ // Keep Excel's displayed wall-clock value. Do not convert to UTC.
+ if(v instanceof Date && !isNaN(v)) return {y:v.getFullYear(),mo:v.getMonth()+1,d:v.getDate(),h:v.getHours(),mi:v.getMinutes(),s:v.getSeconds()};
+ const t=String(v??'').trim();
+ let m=t.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+ if(!m)return null;
+ return {y:+m[1],mo:+m[2],d:+m[3],h:+(m[4]||0),mi:+(m[5]||0),s:+(m[6]||0)};
+}
+function dmsDate(v){let p=dmsParts(v);return p?new Date(p.y,p.mo-1,p.d,p.h,p.mi,p.s):null}
+function localYmd(v){let p=dmsParts(v);return p?`${p.y}-${String(p.mo).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`:null}
+function minsBetween(a,b){if(!a||!b)return null;let x=dmsDate(a),y=dmsDate(b);if(!x||!y)return null;return (y-x)/60000}
+function kmValue(v){let m=String(v||'').match(/[\d.]+/);return m?Number(m[0]):null}
+function centerFromAC(ac){
+ let m=String(ac||'').match(/I(981|994|995|996|997|998)/i);
+ return m?'I'+m[1]:null;
+}
+function regionFromAC(ac){let m=String(ac||'').match(/-([A-Z])\s*$/i);return m?m[1].toUpperCase():null}
+function bucket30(v){let p=dmsParts(v);if(!p)return null;let m=p.mi<30?0:30;return `${String(p.h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`}
+function avg(a){let x=a.filter(v=>Number.isFinite(v));return x.length?x.reduce((p,c)=>p+c,0)/x.length:null}
+function parseDmsWorkbook(file,ab){
+ const wb=XLSX.read(ab,{type:'array',cellDates:true});
+ const ws=wb.Sheets['ByOrder']||wb.Sheets[wb.SheetNames[0]];
+ const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+ if(!rows.length)throw new Error('DMS 檔案沒有資料。');
+ const need=['AC','ID','落單時間','自動/手動','指派時間','門市到達時間','外送出發','到達時間','距離','D25'];
+ const missing=need.filter(k=>!(k in rows[0])); if(missing.length)throw new Error('缺少欄位：'+missing.join('、'));
+ const map=new Map(); let valid=0,bad=0,unknownType=0,missingGroup=0; const rawDates=new Set(),rawCenters=new Set();
+ let before11=0;
+ for(const r of rows){
+   const date=localYmd(r['落單時間']), center=centerFromAC(r['AC']), restaurant=String(r['ID']||'').trim(), bucket=bucket30(r['落單時間']), region=regionFromAC(r['AC']);
+   if(!date||!center||!restaurant||!bucket){bad++;continue}
+   // 營運規則：11:00 前訂單不匯入、不分析。
+   if(opMinute(bucket)<660){before11++;continue}
+   valid++;if(!region)missingGroup++;rawDates.add(date);rawCenters.add(center);
+   const key=[center,region||'',restaurant,date,bucket].join('|');
+   if(!map.has(key))map.set(key,{center_id:center,region_code:region,restaurant_name:restaurant,business_date:date,bucket_time:bucket,tc:0,own_tc:0,third_party_tc:0,unknown_tc:0,d25_tc:0,d25_hit:0,assign:[],store:[],pickup:[],delivery:[],distance:[]});
+   const a=map.get(key);a.tc++;
+   const type=String(r['自動/手動']||'').trim();
+   if(type==='第三方')a.third_party_tc++;
+   else if(type==='自動'||type==='手動')a.own_tc++;
+   else {a.unknown_tc++;unknownType++}
+   const d25=String(r['D25']||'').trim().toUpperCase();
+   if(d25==='Y'||d25==='N'){a.d25_tc++;if(d25==='Y')a.d25_hit++}
+   const assign=minsBetween(r['落單時間'],r['指派時間']),store=minsBetween(r['指派時間'],r['門市到達時間']),pickup=minsBetween(r['門市到達時間'],r['外送出發']),delivery=minsBetween(r['落單時間'],r['到達時間']);
+   if(Number.isFinite(assign)&&assign>=0&&assign<300)a.assign.push(assign);
+   if(Number.isFinite(store)&&store>=0&&store<300)a.store.push(store);
+   if(Number.isFinite(pickup)&&pickup>=0&&pickup<300)a.pickup.push(pickup);
+   if(Number.isFinite(delivery)&&delivery>=0&&delivery<600)a.delivery.push(delivery);
+   const km=kmValue(r['距離']);if(Number.isFinite(km))a.distance.push(km);
+ }
+ const agg=[...map.values()].map(a=>({...a,avg_assign_min:avg(a.assign),avg_store_arrival_min:avg(a.store),avg_pickup_min:avg(a.pickup),avg_delivery_min:avg(a.delivery),avg_distance_km:avg(a.distance)}));
+ return {agg,valid,bad,before11,unknownType,missingGroup,dates:[...rawDates].sort(),centers:[...rawCenters].sort()};
+}
+function sumRows(a){
+ return {tc:a.reduce((p,x)=>p+x.tc,0),own:a.reduce((p,x)=>p+x.own_tc,0),third:a.reduce((p,x)=>p+x.third_party_tc,0),unknown:a.reduce((p,x)=>p+(x.unknown_tc||0),0)};
+}
+function resetDms(){
+ $('dmsFile').value='';dmsAgg=[];dmsMeta=null;$('dmsPreview').classList.add('hidden');$('dmsDrill').classList.add('hidden');status($('dmsStatus'),'尚未選擇 DMS 檔案。');
+}
+$('dmsResetBtn').onclick=resetDms;
+window.showDmsGroups=(c,d)=>{
+ const a=dmsAgg.filter(x=>x.center_id===c&&x.business_date===d),groups=[...new Set(a.map(x=>x.region_code||'未辨識'))].sort();
+ let h=`<h3>${c}｜${d}｜Group TC 核對</h3><div class="tablewrap"><table class="tbl"><thead><tr><th>Group</th><th>TC</th><th>OWN</th><th>第三方</th><th>第三方%</th><th>餐廳數</th><th>中心占比</th><th></th></tr></thead><tbody>`;
+ const center=sumRows(a);
+ for(const g of groups){
+   const ga=a.filter(x=>(x.region_code||'未辨識')===g),z=sumRows(ga),rests=new Set(ga.map(x=>x.restaurant_name)).size;
+   h+=`<tr><td><b>${esc(g)}</b></td><td>${z.tc}</td><td>${z.own}</td><td>${z.third}</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td><td>${rests}</td><td>${center.tc?(z.tc/center.tc*100).toFixed(1):'0.0'}%</td><td><button class="btn ghost" onclick="showDmsRestaurants('${c}','${d}','${g}')">餐廳</button></td></tr>`;
+ }
+ h+=`<tr><td><b>Group合計</b></td><td><b>${center.tc}</b></td><td>${center.own}</td><td>${center.third}</td><td colspan="4">${center.tc===sumRows(a).tc?'✓ 與中心 TC 一致':''}</td></tr></tbody></table></div>`;
+ $('dmsDrill').innerHTML=h;$('dmsDrill').classList.remove('hidden');$('dmsDrill').scrollIntoView({behavior:'smooth',block:'start'});
+};
+window.showDmsRestaurants=(c,d,g)=>{
+ const a=dmsAgg.filter(x=>x.center_id===c&&x.business_date===d&&(x.region_code||'未辨識')===g),names=[...new Set(a.map(x=>x.restaurant_name))].sort();
+ let h=`<h3>${c}｜${d}｜${esc(g)} Group｜餐廳 TC</h3><div class="tablewrap"><table class="tbl"><thead><tr><th>餐廳</th><th>TC</th><th>OWN</th><th>第三方</th><th>第三方%</th><th>30分彙總筆數</th></tr></thead><tbody>`;
+ for(const n of names){const ra=a.filter(x=>x.restaurant_name===n),z=sumRows(ra);h+=`<tr><td>${esc(n)}</td><td>${z.tc}</td><td>${z.own}</td><td>${z.third}</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td><td>${ra.length}</td></tr>`}
+ h+='</tbody></table></div><div class="actions"><button class="btn ghost" onclick="showDmsGroups(\''+c+'\',\''+d+'\')">← 回 Group</button></div>';
+ $('dmsDrill').innerHTML=h;
+};
+$('dmsParseBtn').onclick=async()=>{
+ if(profile?.role!=='op_admin')return status($('dmsStatus'),'只有 OP 可以匯入 DMS。','bad');
+ const f=$('dmsFile').files[0];if(!f)return status($('dmsStatus'),'請先選擇 DMS Excel。','bad');
+ status($('dmsStatus'),'正在本機解析全市場 DMS；不會上傳逐筆訂單或顧客資料…');
+ try{
+   const result=parseDmsWorkbook(f,await f.arrayBuffer());dmsAgg=result.agg;dmsMeta=result;
+   $('dmsOrders').textContent=result.valid.toLocaleString();$('dmsDates').textContent=fmtDate(result.dates[0])+'–'+fmtDate(result.dates.at(-1));$('dmsDays').textContent=result.dates.length+' 天';
+   $('dmsCenters').textContent=result.centers.join('、');$('dmsAggCount').textContent=result.agg.length.toLocaleString();
+   const body=$('dmsPreviewBody');body.innerHTML='';
+   for(const c of result.centers)for(const d of result.dates){
+     const a=result.agg.filter(x=>x.center_id===c&&x.business_date===d);if(!a.length)continue;
+     const z=sumRows(a);
+     let tr=document.createElement('tr');tr.innerHTML=`<td>中心</td><td><b>${c}</b></td><td>${d}</td><td>${z.tc}</td><td>${z.own}</td><td>${z.third}</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td><td>${a.length}</td><td><button class="btn ghost" onclick="showDmsGroups('${c}','${d}')">展開 Group</button></td>`;body.appendChild(tr);
+   }
+   const warn=[];
+   if(result.bad)warn.push(`略過 ${result.bad} 筆無法辨識中心／餐廳／落單時間`);
+   if(result.unknownType)warn.push(`${result.unknownType} 筆配送類型不是「自動／手動／第三方」，不會誤算為 OWN`);
+   if(result.missingGroup)warn.push(`${result.missingGroup} 筆 AC 無法辨識 Group`);
+   status($('dmsValidation'),`解析完成：${result.valid.toLocaleString()} 筆。日期依 Excel 顯示的台灣本地日期／時間直接解析，不再經 UTC 轉換。${warn.length?' 注意：'+warn.join('；')+'。':''} 寫入時，同中心重疊日期會先刪除舊彙總再重算。`,'ok');
+   $('dmsDrill').classList.add('hidden');$('dmsPreview').classList.remove('hidden');status($('dmsStatus'),'全市場 DMS 已完成本機彙總；請先展開 Group 核對，尚未寫入 Supabase。','ok');
+ }catch(e){status($('dmsStatus'),'解析失敗：'+e.message,'bad')}
+};
+async function sbRetry(label,fn,max=3){
+ let last;
+ for(let i=1;i<=max;i++){
+   try{
+     const r=await fn();
+     if(r?.error) throw r.error;
+     return r;
+   }catch(e){
+     last=e;
+     status($('dmsSaveStatus'),`${label}失敗（第 ${i}/${max} 次）：${e.message||e}${i<max?'，1秒後重試…':''}`,'bad');
+     if(i<max)await new Promise(r=>setTimeout(r,1000));
+   }
+ }
+ throw new Error(`${label}：${last?.message||last}`);
+}
+$('dmsSaveBtn').onclick=async()=>{
+ if(profile?.role!=='op_admin'||!dmsAgg.length)return;
+ const dates=dmsMeta.dates, centers=dmsMeta.centers;
+ if(!confirm(`確認更新全市場 DMS？\n中心：${centers.join('、')}\n日期：${dates[0]} ～ ${dates.at(-1)}\n原始訂單：${dmsMeta.valid.toLocaleString()} 筆\n彙總：${dmsAgg.length.toLocaleString()} 筆\n\n同中心＋同日期的舊彙總會先刪除再重算。`))return;
+ const btn=$('dmsSaveBtn');btn.disabled=true;
+ try{
+   status($('dmsSaveStatus'),'步驟 1/4：建立／更新餐廳主檔…');
+   const restUnique=new Map();
+   dmsAgg.forEach(a=>restUnique.set(a.center_id+'|'+a.restaurant_name,{center_id:a.center_id,region_code:a.region_code,restaurant_name:a.restaurant_name,active:true}));
+   const rests=[...restUnique.values()];
+   for(let i=0;i<rests.length;i+=100){
+     const part=rests.slice(i,i+100);
+     await sbRetry(`餐廳主檔 ${i+1}–${i+part.length}`,()=>sb.from('restaurants').upsert(part,{onConflict:'center_id,restaurant_name'}));
+   }
+
+   status($('dmsSaveStatus'),'步驟 2/4：取得餐廳資料庫 ID…');
+   let dbR=[];
+   for(const c of centers){
+     const r=await sbRetry(`讀取 ${c} 餐廳`,()=>sb.from('restaurants').select('id,center_id,restaurant_name').eq('center_id',c));
+     dbR.push(...(r.data||[]));
+   }
+   const rid=new Map(dbR.map(r=>[r.center_id+'|'+r.restaurant_name,r.id]));
+   const missing=[...new Set(dmsAgg.filter(a=>!rid.has(a.center_id+'|'+a.restaurant_name)).map(a=>a.center_id+' / '+a.restaurant_name))];
+   if(missing.length)throw new Error('餐廳 ID 對照失敗：'+missing.slice(0,10).join('、')+(missing.length>10?'…':''));
+
+   status($('dmsSaveStatus'),'步驟 3/4：清除本次日期範圍的舊彙總…');
+   for(const c of centers){
+     const cdates=[...new Set(dmsAgg.filter(x=>x.center_id===c).map(x=>x.business_date))];
+     for(let i=0;i<cdates.length;i+=20){
+       const part=cdates.slice(i,i+20);
+       await sbRetry(`清除 ${c} ${part[0]}～${part.at(-1)}`,()=>sb.from('dms_30m').delete().eq('center_id',c).in('business_date',part));
+     }
+   }
+
+   status($('dmsSaveStatus'),'步驟 4/4：寫入30分鐘彙總…');
+   const rows=dmsAgg.map(a=>({center_id:a.center_id,restaurant_id:rid.get(a.center_id+'|'+a.restaurant_name),business_date:a.business_date,bucket_time:a.bucket_time,tc:a.tc,own_tc:a.own_tc,third_party_tc:a.third_party_tc,d25_tc:a.d25_tc,d25_hit:a.d25_hit,avg_assign_min:a.avg_assign_min,avg_store_arrival_min:a.avg_store_arrival_min,avg_pickup_min:a.avg_pickup_min,avg_delivery_min:a.avg_delivery_min,avg_distance_km:a.avg_distance_km,updated_at:new Date().toISOString()}));
+   for(let i=0;i<rows.length;i+=150){
+     const part=rows.slice(i,i+150);
+     await sbRetry(`寫入彙總 ${i+1}–${i+part.length}`,()=>sb.from('dms_30m').insert(part));
+     status($('dmsSaveStatus'),`步驟 4/4：已寫入 ${Math.min(i+part.length,rows.length).toLocaleString()} / ${rows.length.toLocaleString()} 筆…`);
+   }
+   localStorage.setItem('delivery_op_last_dms_import',JSON.stringify({start:dmsMeta.dates[0],end:dmsMeta.dates.at(-1),orders:dmsMeta.valid,saved_at:new Date().toISOString()}));
+   status($('dmsSaveStatus'),`✓ 更新成功：${dmsMeta.valid.toLocaleString()} 筆原始訂單 → ${rows.length.toLocaleString()} 筆30分鐘彙總。11:00 前訂單已排除；原始訂單與顧客資料未寫入 Supabase。`,'ok');
+   await loadDmsDbStatus();
+ }catch(e){
+   status($('dmsSaveStatus'),`寫入中止：${e.message||e}。畫面會保留解析結果，請把這一行錯誤訊息截圖給我；現在可以直接判斷失敗發生在哪個步驟。`,'bad');
+ }finally{btn.disabled=false}
+};
+function dateOnly(s){return new Date(s+'T12:00:00')}
+function weekday(s){return dateOnly(s).getDay()}
+function round1(n){return Math.round(n*10)/10}
+function mean(a){return a.length?a.reduce((p,c)=>p+c,0)/a.length:0}
+function sd(a){if(a.length<2)return 0;let m=mean(a);return Math.sqrt(a.reduce((p,c)=>p+(c-m)**2,0)/(a.length-1))}
+async function loadForecastHistory(center,target,days){
+ const end=new Date(dateOnly(target));end.setDate(end.getDate()-1);
+ const start=new Date(end);start.setDate(start.getDate()-Number(days)+1);
+ const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ let all=[],from=0,step=1000;
+ while(true){
+   const {data,error}=await sb.from('dms_30m')
+    .select('center_id,restaurant_id,business_date,bucket_time,tc,own_tc,third_party_tc,restaurants(id,restaurant_name,region_code)')
+    .eq('center_id',center).gte('business_date',ymd(start)).lte('business_date',ymd(end))
+    .order('business_date').range(from,from+step-1);
+   if(error)throw error; all.push(...(data||[])); if(!data||data.length<step)break; from+=step;
+   if(from>100000)throw new Error('歷史資料筆數過多，請縮短回看期間。');
+ }
+ return all.filter(r=>opMinute(r.bucket_time)>=660);
+}
+function buildForecast(rows,target){
+ rows=rows.filter(r=>opMinute(r.bucket_time)>=660);
+ const wd=weekday(target);
+ const same=rows.filter(r=>weekday(r.business_date)===wd);
+ const source=same.length?same:rows;
+ const dates=[...new Set(source.map(r=>r.business_date))].sort();
+ const byKey=new Map();
+ for(const r of source){
+   const g=r.restaurants?.region_code||'未辨識', n=r.restaurants?.restaurant_name||'未知餐廳', key=[g,n,r.bucket_time].join('|');
+   if(!byKey.has(key))byKey.set(key,[]);
+   byKey.get(key).push(r);
+ }
+ const pred=[];
+ for(const [key,arr] of byKey){
+   const [g,n,t]=key.split('|'), vals=arr.map(x=>Number(x.tc)||0), owns=arr.map(x=>Number(x.own_tc)||0), thirds=arr.map(x=>Number(x.third_party_tc)||0);
+   // Average only over dates on which the restaurant/group slot appears; zeros for missing rows are added for reference dates.
+   const perDate=new Map(arr.map(x=>[x.business_date,x]));
+   const tcs=dates.map(d=>Number(perDate.get(d)?.tc||0)), own=dates.map(d=>Number(perDate.get(d)?.own_tc||0)), third=dates.map(d=>Number(perDate.get(d)?.third_party_tc||0));
+   pred.push({group:g,restaurant:n,time:t,tc:mean(tcs),own:mean(own),third:mean(third),samples:dates.length,sd:sd(tcs),refs:dates.map(d=>({date:d,tc:Number(perDate.get(d)?.tc||0),own:Number(perDate.get(d)?.own_tc||0),third:Number(perDate.get(d)?.third_party_tc||0)}))});
+ }
+ return {pred,dates,usedSameWeekday:same.length>0};
+}
+window.showForecastGroup=(g)=>{
+ if(!fcData)return;
+ const a=fcData.pred.filter(x=>x.group===g), names=[...new Set(a.map(x=>x.restaurant))].sort();
+ let h=`<h2>${esc(g)} Group｜餐廳預測來源</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>餐廳</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>第三方%</th><th></th></tr></thead><tbody>`;
+ for(const n of names){
+   const z=a.filter(x=>x.restaurant===n),tc=z.reduce((p,x)=>p+x.tc,0),own=z.reduce((p,x)=>p+x.own,0),third=z.reduce((p,x)=>p+x.third,0);
+   h+=`<tr><td>${esc(n)}</td><td>${round1(tc)}</td><td>${round1(own)}</td><td>${tc?(third/tc*100).toFixed(1):'0.0'}%</td><td><button class="btn ghost" onclick="showForecastRestaurant('${String(g).replaceAll("'","\\'")}','${String(n).replaceAll("'","\\'")}')">30分鐘</button></td></tr>`;
+ }
+ h+='</tbody></table></div>';$('fcDetail').innerHTML=h;$('fcDetail').classList.remove('hidden');$('fcDetail').scrollIntoView({behavior:'smooth'});
+};
+window.showForecastRestaurant=(g,n)=>{
+ const a=fcData.pred.filter(x=>x.group===g&&x.restaurant===n).sort((x,y)=>x.time.localeCompare(y.time));
+ let h=`<h2>${esc(g)}｜${esc(n)}｜30分鐘預測依據</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>時段</th><th>系統預測 TC</th><th>OWN 建議承接</th><th>歷史範圍</th><th>參考日</th></tr></thead><tbody>`;
+ for(const x of a){let vals=x.refs.map(r=>r.tc),lo=Math.min(...vals),hi=Math.max(...vals);h+=`<tr><td>${x.time.slice(0,5)}</td><td><b>${round1(x.tc)}</b></td><td>${(()=>{const v=forecastSuggestedOwn(x.tc,center,target,x.time,x.group);return v==null?'—':round1(v)})()}</td><td>${lo}–${hi}</td><td class="small">${x.refs.map(r=>`${r.date}: ${r.tc}`).join('｜')}</td></tr>`}
+ h+=`</tbody></table></div><div class="muted" style="margin-top:10px">目前版本為基準預測：同星期歷史平均。天氣、促銷、國定假日／春節角色調整會在下一階段疊加，避免在資料尚未接入前假裝已納入。</div>`;
+ $('fcDetail').innerHTML=h;
+};
+
+function periodOf(t){
+ const m=Number(t.slice(0,2))*60+Number(t.slice(3,5));
+ if(m>=660&&m<810)return ['午餐','11:00–13:30'];
+ if(m>=810&&m<1020)return ['下午餐','13:30–17:00'];
+ if(m>=1020&&m<1260)return ['晚餐','17:00–21:00'];
+ if(m>=1260)return ['消夜','21:00–24:00'];
+ return ['其他','11:00前不納入'];
+}
+function renderForecastExtras(){
+ if(!fcData)return;
+ const total=fcData.pred.reduce((p,x)=>p+x.tc,0);
+ const periods=new Map();
+ for(const x of fcData.pred){
+   const [p,label]=periodOf(x.time);if(!periods.has(p))periods.set(p,{label,tc:0,own:0,third:0});
+   let z=periods.get(p);z.tc+=x.tc;z.own+=x.own;z.third+=x.third;
+ }
+ const order=['午餐','下午餐','晚餐','消夜','其他'],pb=$('fcPeriodBody');pb.innerHTML='';
+ for(const p of order){if(!periods.has(p))continue;const z=periods.get(p),tr=document.createElement('tr');tr.innerHTML=`<td><b>${p}</b></td><td>${z.label}</td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td>${total?(z.tc/total*100).toFixed(1):'0.0'}%</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td>`;pb.appendChild(tr)}
+ const gt=new Map();
+ for(const x of fcData.pred){const k=x.group+'|'+x.time;if(!gt.has(k))gt.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=gt.get(k);z.tc+=x.tc;z.own+=x.own;z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.tc)}
+ const peaks=[...gt.values()].sort((a,b)=>b.tc-a.tc).slice(0,10),bb=$('fcPeakBody');bb.innerHTML='';
+ peaks.forEach((z,i)=>{let top=[...z.rests.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,v])=>`${n} ${round1(v)}`).join('、');let tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${z.time.slice(0,5)}</td><td><b>${esc(z.group)}</b></td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td class="small">${esc(top)}</td>`;bb.appendChild(tr)});
+}
+$('fcCompareBtn').onclick=()=>{
+ if(!fcData)return status($('fcStatus'),'請先產生一次 TC 預測。','bad');
+ const dates=fcData.dates, box=$('fcCompare');
+ let daily=dates.map(d=>{let a=fcData.pred.flatMap(x=>x.refs.filter(r=>r.date===d));return {d,tc:a.reduce((p,x)=>p+x.tc,0),own:a.reduce((p,x)=>p+x.own,0),third:a.reduce((p,x)=>p+x.third,0)}}).sort((a,b)=>a.d.localeCompare(b.d));
+ let h='<h2>歷史參考日比較</h2><div class="muted">這些日期就是目前預測實際使用的樣本；方便檢查某一天是否異常偏高／偏低。</div><div class="tablewrap"><table class="tbl"><thead><tr><th>參考日期</th><th>星期</th><th>TC</th><th>OWN</th><th>第三方</th><th>第三方%</th><th>與樣本平均差異</th></tr></thead><tbody>';
+ const m=mean(daily.map(x=>x.tc));
+ const zh=['日','一','二','三','四','五','六'];
+ for(const x of daily)h+=`<tr><td>${x.d}</td><td>週${zh[weekday(x.d)]}</td><td><b>${x.tc}</b></td><td>${x.own}</td><td>${x.third}</td><td>${x.tc?(x.third/x.tc*100).toFixed(1):'0.0'}%</td><td>${m?((x.tc/m-1)*100).toFixed(1):'0.0'}%</td></tr>`;
+ h+='</tbody></table></div>';box.innerHTML=h;box.classList.remove('hidden');box.scrollIntoView({behavior:'smooth'});
+};
+
+$('fcRun').onclick=async()=>{
+ const center=$('fcCenter').value,target=$('fcDate').value,days=$('fcLookback').value;
+ if(!center||!target)return status($('fcStatus'),'請選擇中心與預測日期。','bad');
+ status($('fcStatus'),'正在讀取 Supabase DMS 歷史資料並建立預測…');
+ try{
+   const rows=await loadForecastHistory(center,target,days);
+   if(!rows.length)throw new Error('此中心在預測日前沒有可用的 DMS 歷史資料。');
+   fcData=buildForecast(rows,target);
+   if(!fcData.pred.length)throw new Error('找不到可建立預測的歷史資料。');
+   const tc=fcData.pred.reduce((p,x)=>p+x.tc,0),own=fcData.pred.reduce((p,x)=>p+x.own,0);
+   $('fcTitle').textContent=`${center}｜${target} 系統 TC 需求預測`;
+   $('fcTc').textContent=Math.round(tc).toLocaleString();$('fcOwn').textContent=Math.round(own).toLocaleString();
+   $('fcRefs').textContent=fcData.dates.length+' 天';$('fcRefDates').textContent=fcData.dates.join('、');
+   const cv=tc?Math.sqrt(fcData.pred.reduce((p,x)=>p+x.sd*x.sd,0))/tc:1;
+   let conf=fcData.dates.length>=6&&cv<.12?'高':fcData.dates.length>=3&&cv<.25?'中':'低';
+   $('fcConf').textContent=conf;$('fcConfNote').textContent=`樣本 ${fcData.dates.length} 天；波動指標 ${(cv*100).toFixed(1)}%`;
+   $('fcTcNote').textContent=fcData.usedSameWeekday?'同星期歷史平均':'同星期資料不足，暫用近期資料';
+   const groups=[...new Set(fcData.pred.map(x=>x.group))].sort(),body=$('fcGroupBody');body.innerHTML='';
+   for(const g of groups){const a=fcData.pred.filter(x=>x.group===g),gtc=a.reduce((p,x)=>p+x.tc,0),go=a.reduce((p,x)=>p+x.own,0),gp=a.reduce((p,x)=>p+x.third,0);let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(gtc)}</td><td>${round1(go)}</td><td>${gtc?(gp/gtc*100).toFixed(1):'0.0'}%</td><td>${fcData.dates.length}天</td><td><button class="btn ghost" onclick="showForecastGroup('${String(g).replaceAll("'","\\'")}')">展開餐廳</button></td>`;body.appendChild(tr)}
+   renderForecastExtras();$('fcCompare').classList.add('hidden');$('fcDetail').classList.add('hidden');$('fcResult').classList.remove('hidden');
+   status($('fcStatus'),`預測完成。使用 ${fcData.dates.length} 個${fcData.usedSameWeekday?'相同星期':'近期'}參考日；可展開 Group → 餐廳 → 30分鐘查看計算依據。`,'ok');
+ }catch(e){status($('fcStatus'),'預測失敗：'+(e.message||e),'bad')}
+};
+
+function tm(s){let [h,m]=String(s).slice(0,5).split(':').map(Number);return h*60+m}
+function inShift(sh,t){
+ let x=tm(t),a=tm(sh.start_time),b=tm(sh.end_time);if(b<=a)b+=1440;if(x<a&&b>1440)x+=1440;return x>=a&&x<a+((b-a));
+}
+function shiftHours(sh){let a=tm(sh.start_time),b=tm(sh.end_time);if(b<=a)b+=1440;return Math.max(0,(b-a-Number(sh.break_minutes||0))/60)}
+async function loadAnalysisSchedule(center,date){
+ const {data,error}=await sb.from('schedule_shifts').select('*').eq('center_id',center).eq('work_date',date);if(error)throw error;return data||[];
+}
+function groupSlotForecast(pred){
+ const m=new Map();
+ for(const x of pred){const k=x.group+'|'+x.time;if(!m.has(k))m.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=m.get(k);z.tc+=x.tc;z.own+=x.own;z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.own)}
+ return [...m.values()];
+}
+function mergeAlerts(rows){
+ const sorted=rows.slice().sort((a,b)=>a.group.localeCompare(b.group)||a.time.localeCompare(b.time)),out=[];
+ for(const r of sorted){
+   const last=out.at(-1),start=tm(r.time);
+   if(last&&last.group===r.group&&last.status===r.status&&start===last.endMin){
+     last.endMin+=30;last.own+=r.own;last.need=Math.max(last.need,r.need);last.available=Math.min(last.available,r.available);last.gap=Math.max(last.gap,r.gap);
+     for(const [n,v] of r.rests)last.rests.set(n,(last.rests.get(n)||0)+v);
+   }else out.push({...r,startMin:start,endMin:start+30,rests:new Map(r.rests)});
+ }
+ return out;
+}
+window.showAnalysisGroup=(g)=>{
+ if(!anData)return;const rows=anData.slots.filter(x=>x.group===g).sort((a,b)=>opMinute(a.time)-opMinute(b.time));
+ let h=`<h2>${esc(g)} Group｜30分鐘人力明細</h2><div class="tablewrap"><table class="tbl"><thead><tr><th>時間</th><th>系統OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>人力差</th><th>狀態</th></tr></thead><tbody>`;
+ for(const x of rows)h+=`<tr><td>${x.time.slice(0,5)}</td><td>${round1(x.own)}</td><td>${x.available}</td><td>${round1(x.need)}</td><td>${round1(x.available-x.need)}</td><td>${x.status}</td></tr>`;
+ h+='</tbody></table></div>';$('anDetail').innerHTML=h;$('anDetail').classList.remove('hidden');$('anDetail').scrollIntoView({behavior:'smooth'});
+};
+
+// Group 天氣：依各中心實際存在的 Group，以服務區域代表點抓取逐小時預報。
+// 代表點只用於營運風險，不代表單一餐廳的精確天氣。
+const GROUP_WEATHER={
+ I997:{A:['士林、北投',25.115,121.515],B:['內湖',25.082,121.588],C:['南港、汐止',25.060,121.635],D:['松山',25.050,121.579],E:['信義、大安',25.030,121.555],G:['中山、萬華',25.045,121.515],H:['淡水',25.167,121.445]},
+ I994:{A:['板橋',25.014,121.467],B:['土城',24.973,121.443],C:['中和',24.999,121.499],D:['三重',25.069,121.492],E:['新莊',25.038,121.451],F:['新店',24.967,121.541],G:['八里',25.146,121.399],H:['基隆',25.131,121.741],I:['宜蘭',24.748,121.746]},
+ I995:{A:['新竹市',24.804,120.969],B:['竹北',24.838,121.008],C:['竹東',24.732,121.091],D:['中壢',24.953,121.225],E:['桃園市',24.994,121.297],F:['楊梅',24.913,121.146],G:['大園',25.065,121.196],H:['龍潭、大溪',24.865,121.250],I:['林口',25.078,121.393],J:['蘆竹',25.045,121.288],K:['苗栗',24.560,120.821]},
+ I996:{A:['台中市區',24.147,120.684],B:['西屯、北屯西側',24.175,120.645],C:['北屯',24.183,120.686],D:['南區、大里',24.105,120.680],E:['豐原、沙鹿',24.250,120.650],G:['南投',23.916,120.684],H:['彰化市',24.069,120.551],I:['員林',23.956,120.576]},
+ I998:{A:['台南市區',22.991,120.213],B:['中西區、西區',22.994,120.197],C:['新營',23.306,120.316],D:['嘉義市',23.482,120.453],E:['善化、新市',23.120,120.300],F:['斗六',23.711,120.544],G:['虎尾、民雄、北港',23.620,120.430]},
+ I981:{A:['苓雅、鳳山',22.625,120.335],B:['三民',22.650,120.320],C:['左營、鼓山',22.680,120.295],D:['岡山、楠梓',22.760,120.300],E:['屏東',22.676,120.494],F:['花蓮',23.991,121.611],G:['潮州',22.551,120.540],H:['台東',22.760,121.145]}
+};
+function wxText(code){
+ if(code===0)return'晴'; if([1,2,3].includes(code))return'多雲'; if([45,48].includes(code))return'霧';
+ if([51,53,55,56,57].includes(code))return'毛毛雨'; if([61,63,65,66,67,80,81,82].includes(code))return'雨';
+ if([71,73,75,77,85,86].includes(code))return'雪'; if([95,96,99].includes(code))return'雷雨'; return'其他';
+}
+async function fetchWxPoint(name,lat,lon,date,group){
+ const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=weather_code,precipitation_probability,precipitation,wind_speed_10m&timezone=Asia%2FTaipei&start_date=${date}&end_date=${date}`;
+ try{
+  const r=await fetch(u); if(!r.ok)throw new Error(`HTTP ${r.status}`); const j=await r.json(),h=j.hourly||{},rows=[];
+  for(let i=0;i<(h.time||[]).length;i++){
+   const time=h.time[i].slice(11,16),pop=Number(h.precipitation_probability?.[i]||0),rain=Number(h.precipitation?.[i]||0),wind=Number(h.wind_speed_10m?.[i]||0),code=Number(h.weather_code?.[i]||0);
+   let risk='低'; if(pop>=70||rain>=2.5||wind>=35)risk='高'; else if(pop>=40||rain>=0.5||wind>=25)risk='中';
+   rows.push({group,time,pop,rain,wind,code,text:wxText(code),risk});
+  }
+  return {group,name,rows};
+ }catch(e){return {group,name,rows:[],error:e.message||String(e)}}
+}
+async function loadWeather(center,date){
+ const defs=GROUP_WEATHER[center]; if(!defs)return {rows:[],groups:{},city:center,error:'無 Group 天氣代表點'};
+ const results=await Promise.all(Object.entries(defs).map(([g,v])=>fetchWxPoint(v[0],v[1],v[2],date,g)));
+ const groups={},rows=[]; for(const r of results){groups[r.group]=r;rows.push(...r.rows)}
+ return {rows,groups,city:CENTERS[center]||center};
+}
+function renderWeather(wx){
+ const b=$('wxBody');b.innerHTML='';
+ if(!wx.rows?.length){status($('wxSummary'),`Group 天氣讀取失敗：${wx.error||'無預報資料'}。TC與班表分析仍可使用。`,'bad');return}
+ const relevant=wx.rows.filter(x=>tm(x.time)>=660), high=relevant.filter(x=>x.risk==='高'),mid=relevant.filter(x=>x.risk==='中');
+ const riskyGroups=[...new Set(relevant.filter(x=>x.risk==='高'||x.risk==='中').map(x=>x.group))];
+ status($('wxSummary'),`${wx.city}｜Group 分區天氣｜${riskyGroups.length?`${Object.keys(wx.groups||{}).length} 個 Group 中 ${riskyGroups.length} 個有中／高風險`:'目前各 Group 無明顯天氣風險'}。11:00 前不納入營運分析。`,high.length?'bad':'ok');
+ const gs=Object.keys(wx.groups||{}).sort();
+ for(const g of gs){
+  const rr=(wx.groups[g].rows||[]).filter(x=>tm(x.time)>=660);
+  for(const x of rr){let tr=document.createElement('tr');tr.innerHTML=`<td><b>${g}</b> ${x.time}</td><td>${x.text}</td><td>${x.pop}%</td><td>${x.rain.toFixed(1)} mm</td><td>${x.wind.toFixed(1)} km/h</td><td>${x.risk}</td>`;b.appendChild(tr)}
+ }
+}
+function wxRiskAt(wx,startMin,endMin,group=null){
+ const a=(wx.rows||[]).filter(x=>(!group||x.group===group)&&tm(x.time)>=startMin&&tm(x.time)<endMin);
+ if(a.some(x=>x.risk==='高'))return'高'; if(a.some(x=>x.risk==='中'))return'中'; return'低';
+}
+function renderOps(alerts,slots,wx){
+ const body=$('opsBody');body.innerHTML='';let recs=[];
+ for(const x of alerts.filter(a=>a.status==='人力不足'||a.status==='人力偏緊')){
+   const same=slots.filter(z=>z.time&&tm(z.time)>=x.startMin&&tm(z.time)<x.endMin&&z.group!==x.group&&z.status==='人力過多');
+   const donors=[...new Set(same.map(z=>z.group))];
+   const risk=wxRiskAt(wx,x.startMin,x.endMin,x.group);
+   let action,reason,pri;
+   if(donors.length){
+     action=`優先確認 ${donors.slice(0,3).join('、')} Group 是否可跨區支援`;
+     reason=`${x.group} Group ${x.status}；其他 Group 同時段有餘裕。${risk!=='低'?`天氣風險${risk}，支援前需保留原區緩衝。`:''}`;pri=1;
+   }else if(x.status==='人力不足'){
+     action=`先評估第三方補足；仍不足再縮小外送距離，必要時提高 QT`;
+     reason=`缺口最高約 ${round1(x.gap)} 人，暫無明顯跨 Group 餘裕。${risk!=='低'?`天氣風險${risk}，配送時間可能拉長。`:''}`;pri=2;
+   }else{
+     action=`維持班表並監控；不建議立即加人`;
+     reason=`目前屬人力偏緊，先保留緩衝。${risk!=='低'?`且天氣風險${risk}。`:''}`;pri=3;
+   }
+   recs.push({x,action,reason,pri});
+ }
+ recs.sort((a,b)=>a.pri-b.pri||b.x.gap-a.x.gap);
+ const fmt=m=>`${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+ for(const [i,r] of recs.entries()){let tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td><b>${esc(r.x.group)}</b></td><td>${fmt(r.x.startMin)}–${fmt(r.x.endMin)}</td><td>${r.x.status}</td><td>${esc(r.action)}</td><td class="small">${esc(r.reason)}</td>`;body.appendChild(tr)}
+ if(!recs.length){let tr=document.createElement('tr');tr.innerHTML='<td colspan="6">目前沒有需要優先處理的人力不足／偏緊事件。</td>';body.appendChild(tr)}
+ return recs;
+}
+
+$('anRun').onclick=async()=>{
+ const center=$('anCenter').value,date=$('anDate').value,days=$('anLookback').value;if(!center||!date)return status($('anStatus'),'請選擇中心與日期。','bad');
+ status($('anStatus'),'正在讀取班表與 DMS 歷史資料…');
+ try{
+   const [shifts,hist,wx]=await Promise.all([loadAnalysisSchedule(center,date),loadForecastHistory(center,date,days),loadWeather(center,date)]);
+   if(!shifts.length)throw new Error(`${center} ${date} 尚未找到已寫入的班表。`);
+   if(!hist.length)throw new Error('預測日前沒有 DMS 歷史資料。');
+   const fc=buildForecast(hist,date),gs=groupSlotForecast(fc.pred);
+   // Current baseline productivity: full-day target 2.0 is used only when history cannot estimate a stable slot requirement.
+   // Requirement is expressed as simultaneous riders for a 30-minute demand bucket: OWN TC / (TPLH * 0.5).
+   const slots=gs.map(z=>{
+     const ss=shifts.filter(x=>x.region_code===z.group&&x.role!=='duty_manager'&&inShift(x,z.time));
+     const available=ss.length;
+     // With limited history, use 2.0 TPLH as transparent fallback, not as a claim that each half-hour must achieve 2.0.
+     const need=z.own/(2.0*0.5);
+     const ratio=need?available/need:available?9:1;
+     const status=need>available+.25?'人力不足':need>available-.25?'人力偏緊':available>need+1.25?'人力過多':'人力足夠';
+     return {...z,available,need,status,gap:Math.max(0,need-available)};
+   });
+   const alerts=mergeAlerts(slots.filter(x=>x.status==='人力不足'||x.status==='人力偏緊'));
+   const riderShifts=shifts.filter(x=>x.role!=='duty_manager'),hours=riderShifts.reduce((p,x)=>p+shiftHours(x),0),own=fc.pred.reduce((p,x)=>p+x.own,0);
+   anData={center,date,shifts,fc,slots,alerts,wx};
+   renderWeather(wx);
+   anData.ops=renderOps(alerts,slots,wx)||[];
+    for(const o of anData.ops){
+      const qtr=qtRecommendation(o.x||o);
+      if(qtr && !String(o.action||'').includes('QT 由')){
+        o.action=(o.action||'')+`；若前序措施後仍不足，${fmtOpMin(qtr.adjustAt)} 起 QT 由 ${qtr.base} 分調至 ${qtr.qt} 分，${fmtOpMin(qtr.restoreAt)} 起依需求恢復原設定。`;
+      }
+    }
+
+   window.anData=anData;
+   window.weatherData=wx;
+   renderOpsAdvice();
+   $('anTitle').textContent=`${center}｜${date} 班表 × TC需求`;
+   $('anOwn').textContent=Math.round(own).toLocaleString();$('anHours').textContent=round1(hours)+' h';$('anTplh').textContent=hours?(own/hours).toFixed(2):'—';$('anAlerts').textContent=alerts.length;
+   const groups=[...new Set([...slots.map(x=>x.group),...shifts.map(x=>x.region_code)])].filter(Boolean).sort(),gb=$('anGroupBody');gb.innerHTML='';
+   for(const g of groups){const a=slots.filter(x=>x.group===g),go=a.reduce((p,x)=>p+x.own,0),gh=riderShifts.filter(x=>x.region_code===g).reduce((p,x)=>p+shiftHours(x),0),bad=a.filter(x=>x.status==='人力不足').length,tight=a.filter(x=>x.status==='人力偏緊').length;let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(go)}</td><td>${round1(gh)} h</td><td>${gh?(go/gh).toFixed(2):'—'}</td><td>${bad}</td><td>${tight}</td><td><button class="btn ghost" onclick="showAnalysisGroup('${g}')">30分鐘</button></td>`;gb.appendChild(tr)}
+   const ab=$('anAlertBody');ab.innerHTML='';
+   const ordered=alerts.sort((a,b)=>(a.status==='人力不足'?0:1)-(b.status==='人力不足'?0:1)||b.gap-a.gap);
+   for(const x of ordered){const fmt=m=>`${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`,top=[...x.rests.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,v])=>`${n} ${round1(v)}`).join('、');let tr=document.createElement('tr');tr.innerHTML=`<td><b>${x.status}</b></td><td>${esc(x.group)}</td><td>${fmt(x.startMin)}–${fmt(x.endMin)}</td><td>${round1(x.own)}</td><td>${x.available}</td><td>${round1(x.need)}</td><td>${round1(x.gap)}</td><td class="small">${esc(top)}</td>`;ab.appendChild(tr)}
+   $('anDetail').classList.add('hidden');$('anResult').classList.remove('hidden');
+   status($('anStatus'),`分析完成：已連接 ${shifts.length} 筆班表與 ${fc.dates.length} 個歷史參考日。已完成班表、系統預測與天氣風險串接。需求人力目前仍使用透明的 2.0 TPLH 暫估；正式歷史生產力模型需累積更多 DMS／班表對照資料後校準。`,'ok');
+ }catch(e){status($('anStatus'),'分析失敗：'+(e.message||e),'bad')}
+};
+
+function excelTime(v){return String(v||'').slice(0,5)}
+function scheduleRowsForExport(){
+ return (currentShifts||[]).slice().sort((a,b)=>String(a.work_date).localeCompare(String(b.work_date))||String(a.region_code).localeCompare(String(b.region_code))||excelTime(a.start_time).localeCompare(excelTime(b.start_time))).map(x=>({
+  '日期':x.work_date,'Group':x.region_code,'姓名':x.employee_name,'員編':x.employee_code||'',
+  '角色':x.role==='duty_manager'?'值班主管':'外送員','上班':excelTime(x.start_time),'下班':excelTime(x.end_time),
+  '休息(分)':Number(x.break_minutes||0),'來源':'Supabase 班表'
+ }));
+}
+function addSheetAutoWidth(ws,rows){
+ const keys=rows.length?Object.keys(rows[0]):[]; ws['!cols']=keys.map(k=>({wch:Math.min(28,Math.max(k.length+2,...rows.slice(0,200).map(r=>String(r[k]??'').length+2)))}));
+}
+function analysisExportRows(){
+ if(!anData)return [];
+ return anData.slots.slice().sort((a,b)=>a.group.localeCompare(b.group)||a.time.localeCompare(b.time)).map(x=>({
+  '日期':anData.date,'Group':x.group,'時間':x.time.slice(0,5),'系統預測TC':round1(x.tc),'系統OWN建議承接 TC':round1(x.own),
+  '可配送人力':x.available,'需求人力(暫估)':round1(x.need),'人力差':round1(x.available-x.need),'狀態':x.status
+ }));
+}
+function opsExportRows(){
+ if(!anData)return [];
+ const fmt=m=>`${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+ return anData.alerts.map(x=>({'日期':anData.date,'Group':x.group,'時間':`${fmt(x.startMin)}–${fmt(x.endMin)}`,'狀態':x.status,'系統OWN建議承接 TC':round1(x.own),'可配送人力':x.available,'需求人力(暫估)':round1(x.need),'缺口':round1(x.gap)}));
+}
+function weatherExportRows(){
+ if(!anData?.wx?.rows)return [];
+ return anData.wx.rows.filter(x=>tm(x.time)>=660).map(x=>({'日期':anData.date,'Group':x.group,'時間':x.time,'天氣':x.text,'降雨機率%':x.pop,'降雨量mm':x.rain,'風速km/h':x.wind,'營運風險':x.risk}));
+}
+function downloadWorkbook(includeAnalysis=false){
+ try{
+  const rows=scheduleRowsForExport(); if(!rows.length)throw new Error('目前沒有已載入的班表可匯出。');
+  const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(rows);addSheetAutoWidth(ws,rows);XLSX.utils.book_append_sheet(wb,ws,'班表');
+  if(includeAnalysis){
+   const ar=analysisExportRows(); if(ar.length){let w=XLSX.utils.json_to_sheet(ar);addSheetAutoWidth(w,ar);XLSX.utils.book_append_sheet(wb,w,'人力分析')}
+   const or=opsExportRows(); if(or.length){let w=XLSX.utils.json_to_sheet(or);addSheetAutoWidth(w,or);XLSX.utils.book_append_sheet(wb,w,'營運警示')}
+   const wr=weatherExportRows(); if(wr.length){let w=XLSX.utils.json_to_sheet(wr);addSheetAutoWidth(w,wr);XLSX.utils.book_append_sheet(wb,w,'天氣預測')}
+  }
+  const dates=[...new Set(rows.map(r=>r['日期']))].sort(),name=`${activeCenter||'中心'}_${dates[0]||''}${dates.length>1?'_'+dates.at(-1):''}_${includeAnalysis?'班表與分析':'班表'}.xlsx`;
+  XLSX.writeFile(wb,name);status($('exportStatus'),`✓ 已產生 ${name}`,'ok');
+ }catch(e){status($('exportStatus'),'匯出失敗：'+(e.message||e),'bad')}
+}
+$('exportScheduleBtn').onclick=()=>downloadWorkbook(false);
+$('exportScheduleAnalysisBtn').onclick=()=>{
+ if(!anData){status($('exportStatus'),'請先到「班表分析」產生一次分析，再匯出班表＋分析。','bad');return}
+ downloadWorkbook(true);
+};
+
+function publicTableHtml(title){const table=$('publicScheduleTable');if(!table)throw new Error('請先選擇有班表的日期。');return `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif}h2{font-size:16px}p{font-size:11px}table{border-collapse:collapse}th,td{border:1px solid #999;padding:3px;text-align:center;font-size:9px}.name{text-align:left}.on{background:#dbeafe}.break{background:#ffedd5}.metric{font-weight:bold}.schedule-tc td{background:#fff7ed}.system-tc td{background:#eef4ff}.capacity td{background:#f0fdf4}.regionhead{text-align:left;font-weight:bold;background:#eee}</style></head><body><h2>${title}</h2><p>班表 TC：${$('kScheduleTc').textContent}　｜　系統預測 TC：${$('kSystemTc').textContent}　｜　OWN 建議承接 TC：${$('kSystemOwn').textContent}　｜　外送員工時：${$('scheduleOpsSummary')?.textContent||''}　｜　預估 OWN TPLH：${$('kPlanTplh').textContent}</p>${table.outerHTML}</body></html>`}
+function publicDownload(content,name){const blob=new Blob(['\ufeff'+content],{type:'application/vnd.ms-excel;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0)}
+$('exportDayPublicBtn').onclick=()=>{try{publicDownload(publicTableHtml(`${activeCenter} ${CENTERS[activeCenter]||''} ${selectedDate} 服務組班表`),`${activeCenter}_${selectedDate}_KFC公版班表.xls`)}catch(e){alert(e.message)}};
+$('exportWeekPublicBtn').onclick=()=>downloadWorkbook(false);
+
+function syncReferenceHeader(){
+ const hc=$('headerCenterSelect'),oc=$('centerSelect');
+ if(hc&&oc){hc.innerHTML=oc.innerHTML;hc.value=oc.value;hc.onchange=()=>{oc.value=hc.value;oc.dispatchEvent(new Event('change'))}}
+ if($('headerLogout'))$('headerLogout').onclick=()=>$('logoutBtn').click();
+ if($('headerRole'))$('headerRole').textContent=$('roleBadge')?.textContent||'';
+ if($('headerCenter'))$('headerCenter').textContent=`${activeCenter||''} ${CENTERS[activeCenter]||''}｜營運決策支援`;
+}
+const _oldLoadSchedule=loadSchedule;
+loadSchedule=async function(){await _oldLoadSchedule();syncReferenceHeader()}
+
+
+const QT_LEVELS=[15,20,25,30,35,40,45,50,60,70,90,120,180,600];
+function nextLegalQt(minutes){
+  const n=Math.max(15,Math.ceil(Number(minutes)||15));
+  return QT_LEVELS.find(x=>x>=n) ?? 600;
+}
+function qtRecommendation(evt){
+  const start=Number(evt.startMin??evt.x?.startMin??660);
+  const end=Number(evt.endMin??evt.x?.endMin??start+30);
+  const gap=Math.max(0,Number(evt.gap??evt.x?.gap??0));
+  const need=Math.max(0.1,Number(evt.need??evt.x?.need??0));
+  if(gap<=0)return null;
+  const extra=Math.max(5,Math.ceil((gap/need)*30)+5);
+  const base=25;
+  const qt=nextLegalQt(base+extra);
+  const lead=Math.max(30,qt-base);
+  return {adjustAt:Math.max(660,start-lead),restoreAt:end,base,qt};
+}
+function fmtOpMin(m){
+  m=((Number(m)%1440)+1440)%1440;
+  return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+}
+
+function renderOpsAdvice(){
+ const tb=$('opsAdviceRows'),empty=$('opsAdviceEmpty'),tl=$('opsStrategyTimeline'); if(!tb||!tl)return;
+ tb.innerHTML='';tl.innerHTML='';
+ const data=anData||window.anData;
+ if(!data){
+   empty.classList.remove('hidden');empty.textContent='請先到「班表分析」選擇中心與日期並執行分析。';
+   $('opsAdviceDate').textContent='—';$('opsHighCount').textContent='—';$('opsSupportCount').textContent='—';
+   return;
+ }
+ empty.classList.add('hidden');$('opsAdviceDate').textContent=data.date||selectedDate||'—';
+ const fmt=m=>`${String(Math.floor((m%1440)/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+ let raw=(data.ops||[]).map(r=>({startMin:r.x.startMin,endMin:r.x.endMin,group:r.x.group,status:r.x.status,action:r.action,reason:r.reason,pri:r.pri||3,gap:Number(r.x.gap||0)}));
+ if(!raw.length) raw=(data.alerts||[]).map(x=>({startMin:x.startMin,endMin:x.endMin,group:x.group,status:x.status,gap:Number(x.gap||0),pri:x.status==='人力不足'?1:3,action:'',reason:''}));
+ raw=raw.filter(x=>x.startMin>=660).sort((a,b)=>a.startMin-b.startMin||a.endMin-b.endMin||String(a.group).localeCompare(String(b.group)));
+
+ // 建立時間邊界，再把同一時間窗所有 Group 狀態整合成一張卡。
+ const cuts=[...new Set(raw.flatMap(x=>[x.startMin,x.endMin]))].sort((a,b)=>a-b);
+ const windows=[];
+ for(let i=0;i<cuts.length-1;i++){
+   const st=cuts[i],en=cuts[i+1]; if(en<=st)continue;
+   const active=raw.filter(x=>x.startMin<en&&x.endMin>st);
+   if(!active.length)continue;
+   const key=active.map(x=>`${x.group}:${x.status}:${x.action}`).sort().join('|');
+   const prev=windows[windows.length-1];
+   if(prev&&prev.key===key&&prev.endMin===st)prev.endMin=en;
+   else windows.push({startMin:st,endMin:en,active,key});
+ }
+ let high=0,supportN=0;
+ for(const w of windows){
+   const shortage=w.active.filter(x=>x.status==='人力不足'), tight=w.active.filter(x=>x.status==='人力偏緊');
+   const affected=[...new Set(w.active.map(x=>x.group))].sort();
+   if(shortage.length)high++;
+   // Parse donor groups already identified by existing ops engine.
+   const donors=[...new Set(w.active.flatMap(x=>{
+     const m=String(x.action||'').match(/由\s*([A-I](?:、[A-I])*)\s*Group/);
+     return m?m[1].split('、'):[];
+   }))].sort();
+   if(donors.length)supportN++;
+
+   let actionText='';
+   if(donors.length){
+     actionText=`人力調動：${donors.join('、')} Group 優先支援 ${affected.join('、')} Group；支援後仍不足，再使用第三方補足。`;
+   }else if(shortage.length){
+     actionText=`人力調動：${affected.join('、')} Group 無明確可支援來源，先使用第三方補足缺口；仍有壓力時縮小外送距離，再依需求調高 QT。`;
+   }else{
+     actionText=`人力調動：${affected.join('、')} Group 維持現有人力，暫不調動；持續觀察需求變化。`;
+   }
+
+   const riskGroups=[...new Set(affected.filter(g=>wxRiskAt(data.wx||{rows:[]},w.startMin,w.endMin,g)!=='低'))];
+   let opsText='';
+   if(riskGroups.length){
+     opsText=`營運調整：${riskGroups.join('、')} Group 有中／高天氣風險，提前確認第三方可用量；必要時縮小外送距離並提高 QT。`;
+   }else if(shortage.length){
+     opsText='營運調整：先以人力／第三方處理，不先調 QT；若仍無法承接，再縮距離 → QT，停單為最後手段。';
+   }else{
+     opsText='營運調整：目前不需縮距離或調 QT。';
+   }
+
+   const reasons=w.active.map(x=>`${x.group} Group ${x.status}${x.gap?`（缺口約 ${round1(Math.abs(x.gap))} 人）`:''}`).join('；');
+   const cls=shortage.length?'high':tight.length?'mid':'ok';
+   const card=document.createElement('div');card.className=`strategy-card ${cls}`;
+   card.innerHTML=`<div class="strategy-time">${fmt(w.startMin)}–${fmt(w.endMin)}｜${affected.join('、')} Group</div>
+     <div class="strategy-main"><b>${esc(actionText)}</b><br>${esc(opsText)}</div>
+     <div class="strategy-reason">判斷依據：${esc(reasons)}${riskGroups.length?`；${esc(riskGroups.join('、'))} Group 天氣風險偏高`:''}</div>`;
+   tl.appendChild(card);
+ }
+ $('opsHighCount').textContent=high;$('opsSupportCount').textContent=supportN;
+ if(!windows.length){
+   empty.classList.remove('hidden');empty.textContent='分析完成，目前沒有需要調整的營運策略。';
+   tl.innerHTML='<div class="strategy-card ok"><div class="strategy-time">目前無需調整</div><div class="strategy-main">班表與系統預測比對後，11:00 後沒有需要優先處理的人力不足／偏緊時段。</div></div>';
+ }
+ const wx=data.wx||window.weatherData;
+ if(wx?.rows?.length){
+   const risky=wx.rows.filter(x=>tm(x.time)>=660&&(x.risk==='高'||x.risk==='中')),rg=[...new Set(risky.map(x=>x.group))];
+   $('opsWeatherSummary').textContent=risky.length?`已載入 ${wx.city||''} ${Object.keys(wx.groups||{}).length} 個 Group 天氣；${rg.join('、')} Group 有中／高風險時段，已分別納入策略。`:`已載入 ${wx.city||''} ${Object.keys(wx.groups||{}).length} 個 Group 天氣；目前 11:00 後無明顯中／高風險時段。`;
+ }else $('opsWeatherSummary').textContent='目前沒有可用的當日天氣資料；班表與 TC 分析仍可使用。';
+}
+document.addEventListener('click',e=>{if(e.target?.dataset?.page==='opsadvice')renderOpsAdvice()});
+
+
+function sortVisibleTimeTables(){
+ document.querySelectorAll('#analysis tbody').forEach(tb=>{
+   const rows=[...tb.querySelectorAll('tr')];
+   rows.sort((a,b)=>opMinute(a.cells[0]?.textContent)-opMinute(b.cells[0]?.textContent));
+   rows.forEach(r=>tb.appendChild(r));
+ });
+}
+document.addEventListener('click',e=>{if(e.target?.dataset?.page==='analysis')setTimeout(sortVisibleTimeTables,50)});
+
+const EVENT_KEY='delivery_op_events_v1';
+function loadEvents(){try{return JSON.parse(localStorage.getItem(EVENT_KEY)||'[]')}catch(e){return []}}
+function saveEvents(a){localStorage.setItem(EVENT_KEY,JSON.stringify(a));renderEvents()}
+function eventApplies(e,date,center){
+ if(!date||date<e.start||date>e.end)return false;
+ if(e.scope==='all')return true;
+ return e.center===center;
+}
+function renderEvents(){
+ const a=loadEvents(),tb=$('eventBody');if(!tb)return;tb.innerHTML='';
+ $('promoCount').textContent=a.filter(x=>x.kind==='促銷').length;
+ $('typhoonCount').textContent=a.filter(x=>x.kind==='颱風').length;
+ a.sort((x,y)=>y.start.localeCompare(x.start)).forEach((e,i)=>{
+  const tr=document.createElement('tr'),scope=e.scope==='all'?'全市場':`${e.center||'—'}${e.group?' / '+e.group+' Group':''}`;
+  tr.innerHTML=`<td><span class="tag">${esc(e.kind)}</span></td><td><b>${esc(e.name)}</b></td><td>${esc(e.start)}～${esc(e.end)}</td><td>${esc(scope)}</td><td>${esc(e.period||e.type||'—')}</td><td>${esc(e.note||'')}</td><td><button class="btn ghost" data-del-event="${esc(e.id)}">刪除</button></td>`;tb.appendChild(tr);
+ });
+ tb.querySelectorAll('[data-del-event]').forEach(b=>b.onclick=()=>saveEvents(loadEvents().filter(x=>x.id!==b.dataset.delEvent)));
+}
+$('promoAdd').onclick=()=>{
+ const name=$('promoName').value.trim(),start=$('promoStart').value,end=$('promoEnd').value||start;
+ if(!name||!start)return alert('請填寫活動名稱與開始日期。');
+ const a=loadEvents();a.push({id:crypto.randomUUID(),kind:'促銷',name,start,end,period:$('promoPeriod').value,scope:$('promoScope').value,group:$('promoGroup').value||null,center:activeCenter,note:$('promoNote').value.trim(),created_at:new Date().toISOString()});saveEvents(a);
+ $('promoName').value='';$('promoNote').value='';
+};
+$('typhoonAdd').onclick=()=>{
+ const name=$('typhoonName').value.trim()||$('typhoonType').value,start=$('typhoonStart').value,end=$('typhoonEnd').value||start;
+ if(!start)return alert('請填寫開始日期。');
+ const a=loadEvents();a.push({id:crypto.randomUUID(),kind:'颱風',name,start,end,type:$('typhoonType').value,scope:$('typhoonScope').value,center:activeCenter,note:$('typhoonNote').value.trim(),created_at:new Date().toISOString()});saveEvents(a);
+ $('typhoonName').value='';$('typhoonNote').value='';
+};
+document.addEventListener('click',e=>{if(e.target?.dataset?.page==='promo')renderEvents()});
+function targetEventText(date,center){
+ const a=loadEvents().filter(e=>eventApplies(e,date,center));
+ if(!a.length)return '';
+ return a.map(e=>`${e.kind}：${e.name}`).join('｜');
+}
+
+function setCurrentForecastDate(d){
+ if(!d)return;
+ window.currentForecastDate=d;
+ const el=$('currentForecastDate'),dw=$('currentForecastDow');
+ if(el)el.textContent=d;
+ if(dw){const dt=new Date(d+'T12:00:00'),z=['日','一','二','三','四','五','六'];dw.textContent=`（${z[dt.getDay()]}）`;}
+}
+
+$('fcDate')?.addEventListener('change',e=>setCurrentForecastDate(e.target.value));
+$('anDate')?.addEventListener('change',e=>setCurrentForecastDate(e.target.value));
+
+function suggestedThirdParty(total,own){
+ if(own==null||own==='—')return '—';
+ return Math.max(0,Number(total||0)-Number(own||0));
+}
+
+
+restore();
+</script>
+</body></html>
