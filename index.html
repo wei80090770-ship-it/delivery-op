@@ -1035,6 +1035,13 @@ $('anRun').onclick=async()=>{
    anData={center,date,shifts,fc,slots,alerts,wx};
    renderWeather(wx);
    anData.ops=renderOps(alerts,slots,wx)||[];
+    for(const o of anData.ops){
+      const qtr=qtRecommendation(o.x||o);
+      if(qtr && !String(o.action||'').includes('QT 由')){
+        o.action=(o.action||'')+`；若前序措施後仍不足，${fmtOpMin(qtr.adjustAt)} 起 QT 由 ${qtr.base} 分調至 ${qtr.qt} 分，${fmtOpMin(qtr.restoreAt)} 起依需求恢復原設定。`;
+      }
+    }
+
    window.anData=anData;
    window.weatherData=wx;
    renderOpsAdvice();
@@ -1110,6 +1117,29 @@ function syncReferenceHeader(){
 }
 const _oldLoadSchedule=loadSchedule;
 loadSchedule=async function(){await _oldLoadSchedule();syncReferenceHeader()}
+
+
+const QT_LEVELS=[15,20,25,30,35,40,45,50,60,70,90,120,180,600];
+function nextLegalQt(minutes){
+  const n=Math.max(15,Math.ceil(Number(minutes)||15));
+  return QT_LEVELS.find(x=>x>=n) ?? 600;
+}
+function qtRecommendation(evt){
+  const start=Number(evt.startMin??evt.x?.startMin??660);
+  const end=Number(evt.endMin??evt.x?.endMin??start+30);
+  const gap=Math.max(0,Number(evt.gap??evt.x?.gap??0));
+  const need=Math.max(0.1,Number(evt.need??evt.x?.need??0));
+  if(gap<=0)return null;
+  const extra=Math.max(5,Math.ceil((gap/need)*30)+5);
+  const base=25;
+  const qt=nextLegalQt(base+extra);
+  const lead=Math.max(30,qt-base);
+  return {adjustAt:Math.max(660,start-lead),restoreAt:end,base,qt};
+}
+function fmtOpMin(m){
+  m=((Number(m)%1440)+1440)%1440;
+  return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+}
 
 function renderOpsAdvice(){
  const tb=$('opsAdviceRows'),empty=$('opsAdviceEmpty'),tl=$('opsStrategyTimeline'); if(!tb||!tl)return;
