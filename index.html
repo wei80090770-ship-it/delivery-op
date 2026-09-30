@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Delivery 班表｜營運決策支援系統</title>
+<title>Delivery OP｜營運決策支援系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -479,11 +479,13 @@ function renderHolidayCompare(){
  };
  setNext(upcoming[0],'holidayMidAutumnLabel','holidayMidAutumnValue','本年度無後續特殊日');
  setNext(upcoming[1],'holidayDragonBoatLabel','holidayDragonBoatValue','本年度無下一個特殊日');
- el.innerHTML=upcoming.length
-   ?upcoming.map(x=>`<tr><td><b>${esc(x.name)}</b></td>${years.map(yr=>`<td>${holidayCell(byName[x.name][yr])}</td>`).join('')}<td>同節日跨年度優先比對</td></tr>`).join('')
-   :`<tr><td colspan="5" class="muted">${y} 年已沒有尚未發生的特殊日。</td></tr>`;
+ const allRows=Object.keys(byName).map(name=>({name,v:byName[name][y]})).sort((a,b)=>{
+   const ad=a.v?.[0]||'9999-12-31', bd=b.v?.[0]||'9999-12-31';
+   return ad.localeCompare(bd);
+ });
+ el.innerHTML=allRows.map(x=>`<tr><td><b>${esc(x.name)}</b></td>${years.map(yr=>`<td>${holidayCell(byName[x.name][yr])}</td>`).join('')}<td>同節日跨年度優先比對</td></tr>`).join('');
  const st=$('holidayUpdateStatus');
- if(st)st.textContent=`目前只顯示 ${y} 年 ${today.slice(5).replace('-','/')} 起尚未發生的節日；已過日期不顯示。歷史比對仍使用去年／今年／明年。`;
+ if(st)st.textContent=`上方摘要只顯示 ${y} 年 ${today.slice(5).replace('-','/')} 起尚未發生的節日；下方完整保留去年／今年／明年所有特殊日，包含已過日期，供跨年度查詢與歷史比對。`;
 }
 updateOldScheduleHint(); renderHolidayCompare();
 
