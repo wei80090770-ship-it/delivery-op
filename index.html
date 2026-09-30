@@ -81,6 +81,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
     <button data-page="import">班表匯入</button>
     <button id="dmsNav" data-page="dms">DMS匯入</button>
     <button data-page="promo">促銷／颱風標記</button>
+    <button data-page="holidaycompare">國定假日對照</button>
     <button id="histWxNav" data-page="histwx">歷史天氣</button>
   </div>
   <div id="forecastDateBar" class="forecast-datebar"><b>目前預測日期</b><span class="date" id="currentForecastDate">—</span><span id="currentForecastDow"></span><span class="muted">TC預測、班表分析、Group天氣與營運策略皆以此日期為準</span></div>
@@ -144,12 +145,28 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="status" style="margin-bottom:12px"><b>班表資料：</b>日期／Group／姓名／上班／下班／休息／角色。匯出 Excel 會保持這些欄位；「歷史數據預測 TC」與「班表上傳 TC」會在分析資料中分開標示。</div><div class="tablewrap"><table class="tbl"><thead><tr><th>日期</th><th>區域</th><th>姓名</th><th>開始</th><th>結束</th><th>休息</th><th>角色</th><th>來源</th></tr></thead><tbody id="previewBody"></tbody></table></div>
       <div class="actions">
         <button class="btn" id="saveBtn">確認並寫入 Supabase</button><button class="btn ghost" id="scheduleDbTestBtn" type="button">測試班表資料庫連線</button>
-        <button class="btn danger" id="clearCurrentBtn">清除目前中心班表</button><button class="btn ghost" id="exportScheduleBtn" type="button">匯出班表 Excel</button><button class="btn ghost" id="exportScheduleAnalysisBtn" type="button">匯出班表＋分析 Excel</button>
+        <button class="btn danger" id="clearOldScheduleBtn">清除舊班表</button><button class="btn danger" id="clearCurrentBtn">清除目前中心班表</button><button class="btn ghost" id="exportScheduleBtn" type="button">匯出班表 Excel</button><button class="btn ghost" id="exportScheduleAnalysisBtn" type="button">匯出班表＋分析 Excel</button>
       </div>
-      <div id="saveStatus" class="status">尚未寫入。</div><div id="exportStatus" class="status">可匯出目前中心已載入的班表。</div>
+      <div id="oldScheduleHint" class="status">舊班表清理範圍計算中…</div><div id="saveStatus" class="status">尚未寫入。</div><div id="exportStatus" class="status">可匯出目前中心已載入的班表。</div>
     </div>
   </section>
 
+
+  <section id="holidaycompare" class="page">
+    <div class="card">
+      <h2>國定假日／特殊日期對照</h2>
+      <div class="muted">用節日名稱跨年度對照實際日期，提供「歷史數據預測 TC」找相同特殊日。農曆節日不以國曆同一天比對；假日前夕仍套用「參考星期五」規則。</div>
+      <div class="grid" style="margin-top:14px">
+        <div class="kpi"><div class="l">比較年度</div><div class="v">2025 ↔ 2026</div></div>
+        <div class="kpi"><div class="l">中秋節</div><div class="v">10/06 ↔ 09/25</div></div>
+        <div class="kpi"><div class="l">端午節</div><div class="v">05/31 ↔ 06/19</div></div>
+        <div class="kpi"><div class="l">比對方式</div><div class="v">節日對節日</div></div>
+      </div>
+      <div class="tablewrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>特殊日</th><th>2025 日期</th><th>星期</th><th>2025 假期／說明</th><th>2026 日期</th><th>星期</th><th>2026 假期／說明</th><th>預測比對</th></tr></thead><tbody id="holidayCompareBody"></tbody></table></div>
+      <div class="status" style="margin-top:12px"><b>預測規則：</b>例如預測 2026/9/25 中秋節，歷史特殊日優先對照 2025/10/6 中秋節，而不是一般星期五或去年 9/25。特殊日前一日若為放假／連假開始前夕，則一般需求基準參考星期五；特殊日本身另外做節日對照。</div>
+      <div class="small muted" style="margin-top:10px">日期依行政院人事行政總處 2025（修正版）與 2026 政府行政機關辦公日曆表整理。此頁用於營運分析日期對照；民間企業實際休假仍依適用法規與公司制度。</div>
+    </div>
+  </section>
 
   <section id="dms" class="page">
     <div class="card">
@@ -405,7 +422,65 @@ $('loginBtn').onclick=async()=>{let email=$('email').value.trim(),password=$('pa
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
 $('centerSelect').onchange=async e=>{activeCenter=e.target.value;resetPreview();await loadSchedule()};
 
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active')});
+function currentMondayISO(){
+ const now=new Date(), day=now.getDay(), diff=day===0?-6:1-day;
+ const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+diff);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function updateOldScheduleHint(){
+ const m=currentMondayISO(), cutoff=dateAdd(m,-1), el=$('oldScheduleHint');
+ if(el)el.innerHTML=`<b>舊班表清理：</b>只刪除 ${cutoff}（含）以前；本週 ${m} 起及所有未來班表保留。`;
+ const b=$('clearOldScheduleBtn'); if(b)b.textContent=`清除 ${cutoff}（含）以前班表`;
+}
+const HOLIDAY_COMPARE=[
+ ['元旦','2025-01-01','三','單日','2026-01-01','四','單日'],
+ ['春節','2025-01-29','三','1/25–2/2 春節假期','2026-02-17','二','2/14–2/22 春節假期'],
+ ['和平紀念日','2025-02-28','五','2/28–3/2','2026-02-28','六','2/27–3/1（2/27補假）'],
+ ['兒童節／清明節','2025-04-04','五','4/3–4/6','2026-04-04','六','4/3–4/6'],
+ ['勞動節','2025-05-01','四','勞動節','2026-05-01','五','5/1–5/3'],
+ ['端午節','2025-05-31','六','5/30–6/1（5/30補假）','2026-06-19','五','6/19–6/21'],
+ ['教師節','2025-09-28','日','9/28；9/29補假','2026-09-28','一','9/25–9/28 與中秋形成4日連假'],
+ ['中秋節','2025-10-06','一','10/4–10/6','2026-09-25','五','9/25–9/28 與教師節形成4日連假'],
+ ['國慶日','2025-10-10','五','10/10–10/12','2026-10-10','六','10/9–10/11（10/9補假）'],
+ ['臺灣光復暨金門古寧頭大捷紀念日','2025-10-25','六','10/24–10/26（10/24補假）','2026-10-25','日','10/24–10/26（10/26補假）'],
+ ['行憲紀念日','2025-12-25','四','單日','2026-12-25','五','12/25–12/27']
+];
+function renderHolidayCompare(){
+ const el=$('holidayCompareBody');if(!el)return;
+ el.innerHTML=HOLIDAY_COMPARE.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${esc(r[3])}</td><td>${r[4]}</td><td>${r[5]}</td><td>${esc(r[6])}</td><td>同節日跨年度優先比對</td></tr>`).join('');
+}
+updateOldScheduleHint(); renderHolidayCompare();
+
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{function currentMondayISO(){
+ const now=new Date(), day=now.getDay(), diff=day===0?-6:1-day;
+ const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+diff);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function updateOldScheduleHint(){
+ const m=currentMondayISO(), cutoff=dateAdd(m,-1), el=$('oldScheduleHint');
+ if(el)el.innerHTML=`<b>舊班表清理：</b>只刪除 ${cutoff}（含）以前；本週 ${m} 起及所有未來班表保留。`;
+ const b=$('clearOldScheduleBtn'); if(b)b.textContent=`清除 ${cutoff}（含）以前班表`;
+}
+const HOLIDAY_COMPARE=[
+ ['元旦','2025-01-01','三','單日','2026-01-01','四','單日'],
+ ['春節','2025-01-29','三','1/25–2/2 春節假期','2026-02-17','二','2/14–2/22 春節假期'],
+ ['和平紀念日','2025-02-28','五','2/28–3/2','2026-02-28','六','2/27–3/1（2/27補假）'],
+ ['兒童節／清明節','2025-04-04','五','4/3–4/6','2026-04-04','六','4/3–4/6'],
+ ['勞動節','2025-05-01','四','勞動節','2026-05-01','五','5/1–5/3'],
+ ['端午節','2025-05-31','六','5/30–6/1（5/30補假）','2026-06-19','五','6/19–6/21'],
+ ['教師節','2025-09-28','日','9/28；9/29補假','2026-09-28','一','9/25–9/28 與中秋形成4日連假'],
+ ['中秋節','2025-10-06','一','10/4–10/6','2026-09-25','五','9/25–9/28 與教師節形成4日連假'],
+ ['國慶日','2025-10-10','五','10/10–10/12','2026-10-10','六','10/9–10/11（10/9補假）'],
+ ['臺灣光復暨金門古寧頭大捷紀念日','2025-10-25','六','10/24–10/26（10/24補假）','2026-10-25','日','10/24–10/26（10/26補假）'],
+ ['行憲紀念日','2025-12-25','四','單日','2026-12-25','五','12/25–12/27']
+];
+function renderHolidayCompare(){
+ const el=$('holidayCompareBody');if(!el)return;
+ el.innerHTML=HOLIDAY_COMPARE.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${esc(r[3])}</td><td>${r[4]}</td><td>${r[5]}</td><td>${esc(r[6])}</td><td>同節日跨年度優先比對</td></tr>`).join('');
+}
+updateOldScheduleHint(); renderHolidayCompare();
+
+document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active')});
 
 function parseWorkbook(file, ab){
  const wb=XLSX.read(ab,{type:'array',cellDates:true});
@@ -576,6 +651,20 @@ $('scheduleDbTestBtn').onclick=async()=>{
 };
 
 $('saveBtn').onclick=saveSchedule;
+$('clearOldScheduleBtn').onclick=async()=>{
+ if(!session||!activeCenter)return status($('saveStatus'),'請先登入並選擇中心。','bad');
+ const monday=currentMondayISO(), cutoff=dateAdd(monday,-1);
+ if(!confirm(`確定清除 ${activeCenter} 在 ${cutoff}（含）以前的舊班表？\n本週 ${monday} 起與未來班表會保留；DMS、天氣、促銷與節日資料不受影響。`))return;
+ const btn=$('clearOldScheduleBtn');btn.disabled=true;
+ try{
+   status($('saveStatus'),`正在清除 ${cutoff}（含）以前的舊班表…`);
+   let r=await sb.from('schedule_import_coverage').delete().eq('center_id',activeCenter).lte('work_date',cutoff); if(r.error)throw new Error('schedule_import_coverage：'+r.error.message);
+   r=await sb.from('schedule_shifts').delete().eq('center_id',activeCenter).lte('work_date',cutoff); if(r.error)throw new Error('schedule_shifts：'+r.error.message);
+   const {data:oldWeeks,error:wErr}=await sb.from('schedule_weeks').select('id,week_start').eq('center_id',activeCenter).lt('week_start',monday); if(wErr)throw new Error('schedule_weeks：'+wErr.message);
+   for(const w of (oldWeeks||[])){const d=await sb.from('schedule_weeks').delete().eq('id',w.id).eq('center_id',activeCenter);if(d.error)throw new Error('schedule_weeks：'+d.error.message)}
+   await loadSchedule(); status($('saveStatus'),`✓ 已清除 ${cutoff}（含）以前舊班表；本週與未來班表已保留。`,'ok');
+ }catch(e){status($('saveStatus'),'清除舊班表失敗：'+(e.message||e),'bad')}finally{btn.disabled=false}
+};
 $('clearCurrentBtn').onclick=async()=>{if(!confirm(`確定清除 ${activeCenter} 所有目前已匯入班表？DMS、促銷、節日不會刪除。`))return;const {error}=await sb.from('schedule_weeks').delete().eq('center_id',activeCenter);if(error)return status($('saveStatus'),'清除失敗：'+error.message,'bad');status($('saveStatus'),'目前中心班表已清除。','ok');await loadSchedule()};
 $('refreshSchedule').onclick=loadSchedule;
 
