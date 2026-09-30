@@ -167,18 +167,18 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
   <section id="holidaycompare" class="page">
     <div class="card">
       <h2>國定假日／特殊日期對照</h2>
-      <div class="muted">用「同一節日」跨年度對照實際日期，讓歷史數據預測 TC 不會拿錯國曆日期。已加入 2025、2026、2027；假日前夕仍套用「參考星期五」規則。</div>
+      <div class="muted">用「同一節日」跨年度對照實際日期，讓歷史數據預測 TC 不會拿錯國曆日期。畫面固定只顯示「去年／今年／明年」3 個年度；假日前夕仍套用「參考星期五」規則。</div>
       <div class="grid" style="margin-top:14px">
-        <div class="kpi"><div class="l">目前資料年度</div><div class="v">2025–2027</div></div>
-        <div class="kpi"><div class="l">2027 中秋節</div><div class="v">09/15</div></div>
-        <div class="kpi"><div class="l">2027 端午節</div><div class="v">06/09</div></div>
+        <div class="kpi"><div class="l">目前顯示年度</div><div class="v" id="holidayYearRange">—</div></div>
+        <div class="kpi"><div class="l" id="holidayMidAutumnLabel">明年中秋節</div><div class="v" id="holidayMidAutumnValue">—</div></div>
+        <div class="kpi"><div class="l" id="holidayDragonBoatLabel">明年端午節</div><div class="v" id="holidayDragonBoatValue">—</div></div>
         <div class="kpi"><div class="l">比對方式</div><div class="v">節日對節日</div></div>
       </div>
       <div class="actions" style="margin-top:12px"><button class="btn ghost" id="refreshHolidayBtn">重新載入節日資料</button></div>
-      <div id="holidayUpdateStatus" class="status">節日資料已更新至 2027；未來年度需依政府公告更新後再納入模型。</div>
-      <div class="tablewrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>特殊日</th><th>2025</th><th>2026</th><th>2027</th><th>預測比對</th></tr></thead><tbody id="holidayCompareBody"></tbody></table></div>
+      <div id="holidayUpdateStatus" class="status">固定顯示去年／今年／明年 3 個年度；尚未建立的未來年度會標示「待更新」。</div>
+      <div class="tablewrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>特殊日</th><th id="holidayYearPrev">去年</th><th id="holidayYearCurrent">今年</th><th id="holidayYearNext">明年</th><th>預測比對</th></tr></thead><tbody id="holidayCompareBody"></tbody></table></div>
       <div class="status" style="margin-top:12px"><b>預測規則：</b>特殊日本身優先比對歷年同一節日；若某日是放假／連假開始前一日，該日前夕的歷史需求基準改參考星期五。節日日期只決定取樣，不直接硬加固定 TC 百分比。</div>
-      <div class="small muted" style="margin-top:10px">2025–2027 日期依行政院人事行政總處辦公日曆資料整理。此頁用於營運分析日期對照；民間企業實際休假仍依適用法規與公司制度。</div>
+      <div class="small muted" style="margin-top:10px">已建立年度日期依行政院人事行政總處辦公日曆資料整理。此頁固定顯示 3 個年度，用於營運分析日期對照；民間企業實際休假仍依適用法規與公司制度。</div>
     </div>
   </section>
 
@@ -462,10 +462,19 @@ const HOLIDAY_COMPARE=[
  ['行憲紀念日',['2025-12-25','單日'],['2026-12-25','12/25–12/27'],['2027-12-25','12/24–12/26']]
 ];
 function weekdayZh(d){const x=new Date(d+'T12:00:00');return '日一二三四五六'[x.getDay()]}
-function holidayCell(v){return `<b>${v[0]}</b>（${weekdayZh(v[0])}）<div class="small muted">${esc(v[1])}</div>`}
+function holidayCell(v){return v?`<b>${v[0]}</b>（${weekdayZh(v[0])}）<div class="small muted">${esc(v[1])}</div>`:'<span class="muted">待更新</span>'}
 function renderHolidayCompare(){
  const el=$('holidayCompareBody');if(!el)return;
- el.innerHTML=HOLIDAY_COMPARE.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td>${holidayCell(r[1])}</td><td>${holidayCell(r[2])}</td><td>${holidayCell(r[3])}</td><td>同節日跨年度優先比對</td></tr>`).join('');
+ const y=new Date().getFullYear(), years=[y-1,y,y+1];
+ const sourceYears=[2025,2026,2027];
+ const byName={};
+ HOLIDAY_COMPARE.forEach(r=>{byName[r[0]]={}; sourceYears.forEach((yr,i)=>byName[r[0]][yr]=r[i+1]);});
+ $('holidayYearPrev').textContent=years[0]; $('holidayYearCurrent').textContent=years[1]; $('holidayYearNext').textContent=years[2];
+ $('holidayYearRange').textContent=`${years[0]}–${years[2]}`;
+ const mid=byName['中秋節']?.[years[2]], dragon=byName['端午節']?.[years[2]];
+ $('holidayMidAutumnLabel').textContent=`${years[2]} 中秋節`; $('holidayMidAutumnValue').textContent=mid?mid[0].slice(5).replace('-','/'):'待更新';
+ $('holidayDragonBoatLabel').textContent=`${years[2]} 端午節`; $('holidayDragonBoatValue').textContent=dragon?dragon[0].slice(5).replace('-','/'):'待更新';
+ el.innerHTML=Object.keys(byName).map(name=>`<tr><td><b>${esc(name)}</b></td>${years.map(yr=>`<td>${holidayCell(byName[name][yr])}</td>`).join('')}<td>同節日跨年度優先比對</td></tr>`).join('');
 }
 updateOldScheduleHint(); renderHolidayCompare();
 
