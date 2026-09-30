@@ -838,6 +838,30 @@ $('dmsSaveBtn').onclick=async()=>{
 };
 function dateOnly(s){return new Date(s+'T12:00:00')}
 function weekday(s){return dateOnly(s).getDay()}
+// 台灣政府行政機關 2026 年放假區間（DGPA 公告）。
+// 預測規則：放假區間開始日前一天，歷史星期取樣一律改抓星期五。
+const TW_HOLIDAY_RANGES_2026=[
+ ['2026-01-01','2026-01-01','元旦'],
+ ['2026-02-14','2026-02-22','春節連假'],
+ ['2026-02-27','2026-03-01','和平紀念日連假'],
+ ['2026-04-03','2026-04-06','兒童節／清明節連假'],
+ ['2026-05-01','2026-05-03','勞動節連假'],
+ ['2026-06-19','2026-06-21','端午節連假'],
+ ['2026-09-25','2026-09-28','中秋節／教師節連假'],
+ ['2026-10-09','2026-10-11','國慶日連假'],
+ ['2026-10-24','2026-10-26','臺灣光復暨金門古寧頭大捷紀念日連假'],
+ ['2026-12-25','2026-12-27','行憲紀念日連假']
+];
+function holidayRangeFor(d){return TW_HOLIDAY_RANGES_2026.find(x=>d>=x[0]&&d<=x[1])||null}
+function preHolidayInfo(d){
+ const next=dateAdd(d,1),r=TW_HOLIDAY_RANGES_2026.find(x=>x[0]===next);
+ return r?{name:r[2],start:r[0],end:r[1],referenceWeekday:5}:null;
+}
+function forecastDateType(d){
+ const pre=preHolidayInfo(d);if(pre)return {type:'preholiday',label:`${pre.name}前夕`,referenceWeekday:5,reason:`隔日 ${pre.start} 開始放假，歷史取樣改參考星期五`};
+ const h=holidayRangeFor(d);if(h)return {type:'holiday',label:h[2],referenceWeekday:weekday(d),reason:'放假日／連假日（目前先標記特殊日；不自行假設固定 TC 增幅）'};
+ return {type:'normal',label:'一般日',referenceWeekday:weekday(d),reason:'依實際星期取樣'};
+}
 function round1(n){return Math.round(n*10)/10}
 function mean(a){return a.length?a.reduce((p,c)=>p+c,0)/a.length:0}
 function sd(a){if(a.length<2)return 0;let m=mean(a);return Math.sqrt(a.reduce((p,c)=>p+(c-m)**2,0)/(a.length-1))}
@@ -858,7 +882,7 @@ async function loadForecastHistory(center,target,days){
 }
 function buildForecast(rows,target){
  rows=rows.filter(r=>opMinute(r.bucket_time)>=660);
- const wd=weekday(target);
+ const dateType=forecastDateType(target),wd=dateType.referenceWeekday;
  const same=rows.filter(r=>weekday(r.business_date)===wd);
  const source=same.length?same:rows;
  const dates=[...new Set(source.map(r=>r.business_date))].sort();
@@ -876,7 +900,7 @@ function buildForecast(rows,target){
    const tcs=dates.map(d=>Number(perDate.get(d)?.tc||0)), own=dates.map(d=>Number(perDate.get(d)?.own_tc||0)), third=dates.map(d=>Number(perDate.get(d)?.third_party_tc||0));
    pred.push({group:g,restaurant:n,time:t,tc:mean(tcs),own:mean(own),third:mean(third),samples:dates.length,sd:sd(tcs),refs:dates.map(d=>({date:d,tc:Number(perDate.get(d)?.tc||0),own:Number(perDate.get(d)?.own_tc||0),third:Number(perDate.get(d)?.third_party_tc||0)}))});
  }
- return {pred,dates,usedSameWeekday:same.length>0};
+ return {pred,dates,usedSameWeekday:same.length>0,dateType,referenceWeekday:wd};
 }
 window.showForecastGroup=(g)=>{
  if(!fcData)return;
@@ -946,11 +970,17 @@ $('fcRun').onclick=async()=>{
    const cv=tc?Math.sqrt(fcData.pred.reduce((p,x)=>p+x.sd*x.sd,0))/tc:1;
    let conf=fcData.dates.length>=6&&cv<.12?'高':fcData.dates.length>=3&&cv<.25?'中':'低';
    $('fcConf').textContent=conf;$('fcConfNote').textContent=`樣本 ${fcData.dates.length} 天；波動指標 ${(cv*100).toFixed(1)}%`;
-   $('fcTcNote').textContent=fcData.usedSameWeekday?'同星期歷史平均':'同星期資料不足，暫用近期資料';
+   const zhDow=['日','一','二','三','四','五','六'];
+   $('fcTcNote').textContent=fcData.dateType?.type==='preholiday'
+    ?`${fcData.dateType.label}｜參考星期五歷史平均`
+    :(fcData.dateType?.type==='holiday'
+      ?`${fcData.dateType.label}｜特殊日標記；目前依週${zhDow[fcData.referenceWeekday]}歷史基準`
+      :(fcData.usedSameWeekday?'同星期歷史平均':'同星期資料不足，暫用近期資料'));
    const groups=[...new Set(fcData.pred.map(x=>x.group))].sort(),body=$('fcGroupBody');body.innerHTML='';
    for(const g of groups){const a=fcData.pred.filter(x=>x.group===g),gtc=a.reduce((p,x)=>p+x.tc,0),go=a.reduce((p,x)=>p+Number(x.recommendedOwn||0),0),g3=a.reduce((p,x)=>p+Number(x.recommendedThird||0),0),hist3=a.reduce((p,x)=>p+x.third,0),plan=a[0]?.ownPlan||groupOwnPlan(fcData.pred,center,target,g),stc=scheduleTcForGroup(target,g);let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(gtc)}</td><td>${stc?round1(stc):'—'}</td><td>${round1(plan.hours)} h</td><td><b>${round1(go)}</b></td><td>${round1(g3)}</td><td class="small">${esc(plan.reason)}</td><td>${gtc?(hist3/gtc*100).toFixed(1):'0.0'}%</td><td>${fcData.dates.length}天</td><td><button class="btn ghost" onclick="showForecastGroup('${String(g).replaceAll("'","\\'")}')">展開餐廳</button></td>`;body.appendChild(tr)}
    renderForecastExtras();$('fcCompare').classList.add('hidden');$('fcDetail').classList.add('hidden');$('fcResult').classList.remove('hidden');
-   status($('fcStatus'),`預測完成。使用 ${fcData.dates.length} 個${fcData.usedSameWeekday?'相同星期':'近期'}參考日；${fcData.weatherAdjusted?`另有 ${fcData.weatherAdjusted} 個30分鐘時段依雨天歷史調整。`:'本次無符合條件的雨天歷史調整。'}可展開 Group → 餐廳 → 30分鐘查看計算依據。`,'ok');
+   const dateRule=fcData.dateType?.type==='preholiday'?`日期規則：${fcData.dateType.reason}；`:fcData.dateType?.type==='holiday'?`日期標記：${fcData.dateType.label}；`:'';
+   status($('fcStatus'),`預測完成。${dateRule}使用 ${fcData.dates.length} 個${fcData.usedSameWeekday?'符合參考星期':'近期'}參考日；${fcData.weatherAdjusted?`另有 ${fcData.weatherAdjusted} 個30分鐘時段依雨天歷史調整。`:'本次無符合條件的雨天歷史調整。'}可展開 Group → 餐廳 → 30分鐘查看計算依據。`,'ok');
  }catch(e){status($('fcStatus'),'預測失敗：'+(e.message||e),'bad')}
 };
 
@@ -1425,7 +1455,7 @@ function setCurrentForecastDate(d){
  window.currentForecastDate=d;
  const el=$('currentForecastDate'),dw=$('currentForecastDow');
  if(el)el.textContent=d;
- if(dw){const dt=new Date(d+'T12:00:00'),z=['日','一','二','三','四','五','六'];dw.textContent=`（${z[dt.getDay()]}）`;}
+ if(dw){const dt=new Date(d+'T12:00:00'),z=['日','一','二','三','四','五','六'],ft=forecastDateType(d);dw.textContent=`（${z[dt.getDay()]}）${ft.type==='preholiday'?`｜${ft.label}・預測參考星期五`:ft.type==='holiday'?`｜${ft.label}`:''}`;}
 }
 
 $('fcDate')?.addEventListener('change',e=>setCurrentForecastDate(e.target.value));
