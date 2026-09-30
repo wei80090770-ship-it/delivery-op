@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Delivery 班表拼接｜營運決策支援系統</title>
+<title>Delivery OP｜營運決策支援系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -169,13 +169,13 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <h2>國定假日／特殊日期對照</h2>
       <div class="muted">用「同一節日」跨年度對照實際日期，讓歷史數據預測 TC 不會拿錯國曆日期。畫面固定只顯示「去年／今年／明年」3 個年度；假日前夕仍套用「參考星期五」規則。</div>
       <div class="grid" style="margin-top:14px">
-        <div class="kpi"><div class="l">目前顯示年度</div><div class="v" id="holidayYearRange">—</div></div>
-        <div class="kpi"><div class="l" id="holidayMidAutumnLabel">明年中秋節</div><div class="v" id="holidayMidAutumnValue">—</div></div>
-        <div class="kpi"><div class="l" id="holidayDragonBoatLabel">明年端午節</div><div class="v" id="holidayDragonBoatValue">—</div></div>
+        <div class="kpi"><div class="l">目前年度</div><div class="v" id="holidayYearRange">—</div></div>
+        <div class="kpi"><div class="l" id="holidayMidAutumnLabel">下一個特殊日</div><div class="v" id="holidayMidAutumnValue">—</div></div>
+        <div class="kpi"><div class="l" id="holidayDragonBoatLabel">再下一個特殊日</div><div class="v" id="holidayDragonBoatValue">—</div></div>
         <div class="kpi"><div class="l">比對方式</div><div class="v">節日對節日</div></div>
       </div>
       <div class="actions" style="margin-top:12px"><button class="btn ghost" id="refreshHolidayBtn">重新載入節日資料</button></div>
-      <div id="holidayUpdateStatus" class="status">固定顯示去年／今年／明年 3 個年度；尚未建立的未來年度會標示「待更新」。</div>
+      <div id="holidayUpdateStatus" class="status">只顯示本年度今天起尚未發生的節日；對照欄仍保留去年／今年／明年 3 個年度。</div>
       <div class="tablewrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>特殊日</th><th id="holidayYearPrev">去年</th><th id="holidayYearCurrent">今年</th><th id="holidayYearNext">明年</th><th>預測比對</th></tr></thead><tbody id="holidayCompareBody"></tbody></table></div>
       <div class="status" style="margin-top:12px"><b>預測規則：</b>特殊日本身優先比對歷年同一節日；若某日是放假／連假開始前一日，該日前夕的歷史需求基準改參考星期五。節日日期只決定取樣，不直接硬加固定 TC 百分比。</div>
       <div class="small muted" style="margin-top:10px">已建立年度日期依行政院人事行政總處辦公日曆資料整理。此頁固定顯示 3 個年度，用於營運分析日期對照；民間企業實際休假仍依適用法規與公司制度。</div>
@@ -465,16 +465,25 @@ function weekdayZh(d){const x=new Date(d+'T12:00:00');return '日一二三四五
 function holidayCell(v){return v?`<b>${v[0]}</b>（${weekdayZh(v[0])}）<div class="small muted">${esc(v[1])}</div>`:'<span class="muted">待更新</span>'}
 function renderHolidayCompare(){
  const el=$('holidayCompareBody');if(!el)return;
- const y=new Date().getFullYear(), years=[y-1,y,y+1];
+ const now=new Date(), y=now.getFullYear(), years=[y-1,y,y+1];
+ const today=`${y}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
  const sourceYears=[2025,2026,2027];
  const byName={};
  HOLIDAY_COMPARE.forEach(r=>{byName[r[0]]={}; sourceYears.forEach((yr,i)=>byName[r[0]][yr]=r[i+1]);});
  $('holidayYearPrev').textContent=years[0]; $('holidayYearCurrent').textContent=years[1]; $('holidayYearNext').textContent=years[2];
- $('holidayYearRange').textContent=`${years[0]}–${years[2]}`;
- const mid=byName['中秋節']?.[years[2]], dragon=byName['端午節']?.[years[2]];
- $('holidayMidAutumnLabel').textContent=`${years[2]} 中秋節`; $('holidayMidAutumnValue').textContent=mid?mid[0].slice(5).replace('-','/'):'待更新';
- $('holidayDragonBoatLabel').textContent=`${years[2]} 端午節`; $('holidayDragonBoatValue').textContent=dragon?dragon[0].slice(5).replace('-','/'):'待更新';
- el.innerHTML=Object.keys(byName).map(name=>`<tr><td><b>${esc(name)}</b></td>${years.map(yr=>`<td>${holidayCell(byName[name][yr])}</td>`).join('')}<td>同節日跨年度優先比對</td></tr>`).join('');
+ $('holidayYearRange').textContent=String(y);
+ const upcoming=Object.keys(byName).map(name=>({name,v:byName[name][y]})).filter(x=>x.v&&x.v[0]>=today).sort((a,b)=>a.v[0].localeCompare(b.v[0]));
+ const setNext=(item,labelId,valueId,fallback)=>{
+   $(labelId).textContent=item?`${item.name}`:fallback;
+   $(valueId).textContent=item?item.v[0].slice(5).replace('-','/'):'—';
+ };
+ setNext(upcoming[0],'holidayMidAutumnLabel','holidayMidAutumnValue','本年度無後續特殊日');
+ setNext(upcoming[1],'holidayDragonBoatLabel','holidayDragonBoatValue','本年度無下一個特殊日');
+ el.innerHTML=upcoming.length
+   ?upcoming.map(x=>`<tr><td><b>${esc(x.name)}</b></td>${years.map(yr=>`<td>${holidayCell(byName[x.name][yr])}</td>`).join('')}<td>同節日跨年度優先比對</td></tr>`).join('')
+   :`<tr><td colspan="5" class="muted">${y} 年已沒有尚未發生的特殊日。</td></tr>`;
+ const st=$('holidayUpdateStatus');
+ if(st)st.textContent=`目前只顯示 ${y} 年 ${today.slice(5).replace('-','/')} 起尚未發生的節日；已過日期不顯示。歷史比對仍使用去年／今年／明年。`;
 }
 updateOldScheduleHint(); renderHolidayCompare();
 
@@ -680,7 +689,7 @@ $('clearAllCentersOldScheduleBtn').onclick=async()=>{
   await loadSchedule();status($('scheduleManageStatus'),`✓ 六中心 ${cutoff}（含）以前舊班表已清除；本週與未來班表保留。`,'ok');
  }catch(e){status($('scheduleManageStatus'),'六中心清理失敗：'+(e.message||e),'bad')}finally{btn.disabled=false}
 };
-$('refreshHolidayBtn').onclick=()=>{renderHolidayCompare();status($('holidayUpdateStatus'),'✓ 已重新載入 2025–2027 節日對照資料。','ok')};
+$('refreshHolidayBtn').onclick=()=>{renderHolidayCompare();renderHolidayCompare();status($('holidayUpdateStatus'),'✓ 已重新載入本年度尚未發生的節日。','ok')};
 $('refreshSchedule').onclick=loadSchedule;
 
 async function loadSchedule(){
