@@ -234,6 +234,11 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
         <label>開始日期<input id="actStart" type="date"></label>
         <label>結束日期<input id="actEnd" type="date"></label>
       </div>
+      <div class="grid" style="margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))">
+        <label>時段<select id="actPeriod"><option value="all">全天 11:00–24:00</option><option value="lunch">午餐 11:00–13:30</option><option value="tea">下午茶 13:30–17:00</option><option value="dinner">晚餐 17:00–21:00</option><option value="late">消夜 21:00–24:00</option><option value="custom">自訂</option></select></label>
+        <label>開始時段<select id="actTimeStart"></select></label>
+        <label>結束時段<select id="actTimeEnd"></select></label>
+      </div>
       <div class="actions"><button class="btn" id="actRun">查詢實績</button><label style="margin:0"><select id="actMode"><option value="sum">區間合計</option><option value="avg">日均</option></select></label></div>
       <div id="actStatus" class="status">請選擇中心與日期範圍。</div>
     </div>
@@ -465,7 +470,7 @@ async function loadProfile(sess){
  const allowed=data.role==='op_admin'?Object.keys(CENTERS):[data.center_id];
  allowed.forEach(id=>{let o=document.createElement('option');o.value=id;o.textContent=id+'｜'+CENTERS[id];sel.appendChild(o)});
  activeCenter=allowed[0]; sel.value=activeCenter; sel.disabled=data.role!=='op_admin';
- await loadSchedule();
+ await loadSchedule(); await loadActualTcOptions();
 }
 async function restore(){const {data}=await sb.auth.getSession();if(data.session){try{await loadProfile(data.session)}catch(e){status($('loginStatus'),e.message,'bad')}}}
 $('loginBtn').onclick=async()=>{let email=$('email').value.trim(),password=$('password').value;if(!email||!password)return status($('loginStatus'),'請輸入 Email 與 Password。','bad');status($('loginStatus'),'登入中…');const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)return status($('loginStatus'),'登入失敗：'+error.message,'bad');try{await loadProfile(data.session)}catch(e){status($('loginStatus'),e.message,'bad')}};
@@ -524,8 +529,7 @@ function renderHolidayCompare(){
 }
 updateOldScheduleHint(); renderHolidayCompare();
 
-loadActualTcOptions().catch(()=>{});
- document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{loadActualTcOptions().catch(()=>{});
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{if(b.dataset.page==='actualtc')loadActualTcOptions().catch(e=>status($('actStatus'),'載入失敗：'+(e.message||e),'bad'));
  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active');if(b.dataset.page==='holidaycompare')renderHolidayCompare();});
 
 function parseWorkbook(file, ab){
@@ -1008,8 +1012,18 @@ $('dmsSaveBtn').onclick=async()=>{
  }finally{btn.disabled=false}
 };
 
+function fillActualCenters(){
+ const sel=$('actCenter'); if(!sel)return;
+ const allowed=profile?.role==='op_admin'?Object.keys(CENTERS):[profile?.center_id].filter(Boolean);
+ sel.innerHTML='';
+ for(const c of allowed){const o=document.createElement('option');o.value=c;o.textContent=`${c}｜${CENTERS[c]||''}`;sel.appendChild(o)}
+ const wanted=(activeCenter&&allowed.includes(activeCenter))?activeCenter:allowed[0];
+ if(wanted)sel.value=wanted;
+ sel.disabled=profile?.role!=='op_admin';
+}
 async function loadActualTcOptions(){
- if(!$('actCenter'))return; fillCenters($('actCenter')); if(activeCenter)$('actCenter').value=activeCenter;
+ if(!$('actCenter')||!profile)return;
+ fillActualCenters();
  const today=new Date(), end=new Date(today);end.setDate(end.getDate()-1),start=new Date(end);start.setDate(start.getDate()-27);
  const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
  if(!$('actStart').value)$('actStart').value=ymd(start);if(!$('actEnd').value)$('actEnd').value=ymd(end);
@@ -1017,17 +1031,32 @@ async function loadActualTcOptions(){
 }
 async function refreshActualFilters(){
  const c=$('actCenter')?.value;if(!c)return;
- const {data,error}=await sb.from('restaurants').select('id,restaurant_name,region_code').eq('center_id',c).order('region_code').order('restaurant_name');if(error)return;
- const gs=[...new Set((data||[]).map(x=>x.region_code).filter(Boolean))].sort();$('actGroup').innerHTML='<option value="">全部</option>'+gs.map(g=>`<option>${esc(g)}</option>`).join('');
- $('actRestaurant').innerHTML='<option value="">全部</option>'+(data||[]).map(x=>`<option value="${x.id}" data-group="${esc(x.region_code||'')}">${esc(x.restaurant_name)}</option>`).join('');
+ const {data,error}=await sb.from('restaurants').select('id,restaurant_name,region_code').eq('center_id',c).order('region_code').order('restaurant_name');
+ if(error){status($('actStatus'),'餐廳清單讀取失敗：'+error.message,'bad');return}
+ const rows=data||[],gs=[...new Set(rows.map(x=>x.region_code).filter(Boolean))].sort();
+ $('actGroup').innerHTML='<option value="">全部</option>'+gs.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+ $('actRestaurant').innerHTML='<option value="">全部</option>'+rows.map(x=>`<option value="${x.id}" data-group="${esc(x.region_code||'')}">${esc(x.restaurant_name)}</option>`).join('');
 }
 $('actCenter')?.addEventListener('change',refreshActualFilters);
 $('actGroup')?.addEventListener('change',()=>{const g=$('actGroup').value;for(const o of $('actRestaurant').options){if(!o.value)continue;o.hidden=!!g&&o.dataset.group!==g}if($('actRestaurant').selectedOptions[0]?.hidden)$('actRestaurant').value=''});
 let actualTcRows=[];
 function actualNum(v){return Number(v||0)}
+function actualTimeOptions(){
+ const vals=[];for(let m=11*60;m<=24*60;m+=30){const h=Math.floor(m/60),mm=m%60;vals.push(`${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}`)}
+ $('actTimeStart').innerHTML=vals.slice(0,-1).map(v=>`<option value="${v}">${v}</option>`).join('');
+ $('actTimeEnd').innerHTML=vals.slice(1).map(v=>`<option value="${v}">${v}</option>`).join('');
+ $('actTimeStart').value='11:00';$('actTimeEnd').value='24:00';
+}
+function actualApplyPeriod(v){const map={all:['11:00','24:00'],lunch:['11:00','13:30'],tea:['13:30','17:00'],dinner:['17:00','21:00'],late:['21:00','24:00']};if(map[v]){[$('actTimeStart').value,$('actTimeEnd').value]=map[v];$('actTimeStart').disabled=true;$('actTimeEnd').disabled=true}else{$('actTimeStart').disabled=false;$('actTimeEnd').disabled=false}}
+function actualInTime(x){const t=String(x.promised_bucket).slice(0,5),a=$('actTimeStart').value||'11:00',b=$('actTimeEnd').value||'24:00';return tm(t)>=tm(a)&&tm(t)<tm(b)}
+actualTimeOptions();actualApplyPeriod('all');
+$('actPeriod')?.addEventListener('change',()=>{actualApplyPeriod($('actPeriod').value);if(actualTcRows.length)renderActualMatrix(actualTcRows,$('actMode').value,$('actStart').value,$('actEnd').value)});
+$('actTimeStart')?.addEventListener('change',()=>{if(tm($('actTimeStart').value)>=tm($('actTimeEnd').value))return status($('actStatus'),'開始時段必須早於結束時段。','bad');if(actualTcRows.length)renderActualMatrix(actualTcRows,$('actMode').value,$('actStart').value,$('actEnd').value)});
+$('actTimeEnd')?.addEventListener('change',()=>{if(tm($('actTimeStart').value)>=tm($('actTimeEnd').value))return status($('actStatus'),'開始時段必須早於結束時段。','bad');if(actualTcRows.length)renderActualMatrix(actualTcRows,$('actMode').value,$('actStart').value,$('actEnd').value)});
 function renderActualMatrix(rows,mode,start,end){
  const g=$('actGroup').value,rid=$('actRestaurant').value;
- let a=rows.filter(x=>(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));
+ const timeRows=rows.filter(actualInTime);
+ let a=timeRows.filter(x=>(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));
  const days=[...new Set(a.map(x=>x.business_date))], divisor=mode==='avg'?Math.max(1,days.length):1;
  const times=[...new Set(a.map(x=>String(x.promised_bucket).slice(0,5)))].sort((x,y)=>tm(x)-tm(y));
  const rests=[...new Set(a.map(x=>x.restaurants?.restaurant_name||'未知餐廳'))].sort();
@@ -1035,13 +1064,13 @@ function renderActualMatrix(rows,mode,start,end){
  let h='<table class="tbl" style="min-width:'+Math.max(900,180+times.length*78)+'px"><thead><tr><th style="position:sticky;left:0;z-index:3">餐廳</th>'+times.map(t=>`<th>${t}–${dateAddMinutesLabel(t,30)}</th>`).join('')+'<th>總計</th></tr></thead><tbody>';
  for(const n of rests){h+=`<tr><td style="position:sticky;left:0;background:#fff;z-index:1"><b>${esc(n)}</b></td>`;let rt=0;for(const t of times){const v=(cell.get(n+'|'+t)||0)/divisor;rt+=v;h+=`<td><button class="btn ghost" style="padding:4px 7px;min-width:38px" onclick="showActualOrderDist('${String(n).replaceAll("'","\\'")}','${t}')">${round1(v)}</button></td>`}h+=`<td><b>${round1(rt)}</b></td></tr>`}
  h+='<tr><td style="position:sticky;left:0;background:#f8fafc"><b>Group 總計</b></td>';let peak={t:'—',v:-1};for(const t of times){const v=rests.reduce((p,n)=>p+(cell.get(n+'|'+t)||0),0)/divisor;if(v>peak.v)peak={t,v};h+=`<td><b>${round1(v)}</b></td>`}const total=a.reduce((p,x)=>p+actualNum(x.tc),0)/divisor;h+=`<td><b>${round1(total)}</b></td></tr></tbody></table>`;$('actMatrix').innerHTML=h;
- const centerTotal=rows.reduce((p,x)=>p+actualNum(x.tc),0)/divisor,groupTotal=a.reduce((p,x)=>p+actualNum(x.tc),0)/divisor;$('actCenterTc').textContent=round1(centerTotal);$('actGroupTc').textContent=round1(groupTotal);$('actPeak').textContent=peak.t==='—'?'—':`${peak.t}｜${round1(peak.v)} TC`;
+ const centerTotal=timeRows.reduce((p,x)=>p+actualNum(x.tc),0)/divisor,groupTotal=a.reduce((p,x)=>p+actualNum(x.tc),0)/divisor;$('actCenterTc').textContent=round1(centerTotal);$('actGroupTc').textContent=round1(groupTotal);$('actPeak').textContent=peak.t==='—'?'—':`${peak.t}｜${round1(peak.v)} TC`;
  const od={};for(const x of a)for(const [k,v] of Object.entries(x.order_time_30m||{}))od[k]=(od[k]||0)+Number(v||0);const op=Object.entries(od).sort((a,b)=>b[1]-a[1])[0];$('actOrderPeak').textContent=op?`${op[0].slice(0,5)}｜${round1(op[1]/divisor)} TC`:'—';
  $('actResult').classList.remove('hidden');
 }
 function dateAddMinutesLabel(t,add){let [h,m]=t.split(':').map(Number),x=h*60+m+add;return `${String(Math.floor(x/60)%24).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`}
 window.showActualOrderDist=(name,time)=>{const g=$('actGroup').value,rid=$('actRestaurant').value,mode=$('actMode').value;let a=actualTcRows.filter(x=>(x.restaurants?.restaurant_name||'未知餐廳')===name&&String(x.promised_bucket).slice(0,5)===time&&(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));const days=[...new Set(a.map(x=>x.business_date))],div=mode==='avg'?Math.max(1,days.length):1,od={};for(const x of a)for(const [k,v] of Object.entries(x.order_time_30m||{}))od[k]=(od[k]||0)+Number(v||0);let entries=Object.entries(od).sort((a,b)=>tm(a[0])-tm(b[0])),total=entries.reduce((p,x)=>p+x[1],0)/div,top=[...entries].sort((a,b)=>b[1]-a[1])[0];let h=`<h2>${esc(name)}｜原預計送達 ${time}–${dateAddMinutesLabel(time,30)}</h2><div class="status"><b>TC：</b>${round1(total)}　｜　<b>主要下單時段：</b>${top?top[0].slice(0,5)+'–'+dateAddMinutesLabel(top[0].slice(0,5),30):'—'}</div><div class="tablewrap"><table class="tbl"><thead><tr><th>實際落單時段</th><th>TC</th><th>占比</th></tr></thead><tbody>`;for(const [t,v0] of entries){const v=v0/div;h+=`<tr><td>${t.slice(0,5)}–${dateAddMinutesLabel(t.slice(0,5),30)}</td><td>${round1(v)}</td><td>${total?(v/total*100).toFixed(1):'0.0'}%</td></tr>`}h+='</tbody></table></div>';$('actOrderDetail').innerHTML=h;$('actOrderDetail').classList.remove('hidden');$('actOrderDetail').scrollIntoView({behavior:'smooth'});};
-$('actRun')?.addEventListener('click',async()=>{const c=$('actCenter').value,s=$('actStart').value,e=$('actEnd').value;if(!c||!s||!e)return status($('actStatus'),'請選擇中心與日期範圍。','bad');status($('actStatus'),'正在讀取原預計送達時間實績…');try{let q=sb.from('dms_promised_30m').select('center_id,restaurant_id,business_date,promised_bucket,tc,order_time_30m,restaurants(id,restaurant_name,region_code)').eq('center_id',c).gte('business_date',s).lte('business_date',e).order('business_date');const {data,error}=await q;if(error)throw error;actualTcRows=data||[];if(!actualTcRows.length)throw new Error('此日期範圍尚無「原預計送達時間」實績。舊 DMS 資料需重新匯入一次才會建立此查詢資料。');renderActualMatrix(actualTcRows,$('actMode').value,s,e);status($('actStatus'),`查詢完成：${s}～${e}。矩陣依原預計送達時間統計；點 TC 可看落單時間分布。`,'ok')}catch(e){status($('actStatus'),'查詢失敗：'+(e.message||e),'bad')}});
+$('actRun')?.addEventListener('click',async()=>{const c=$('actCenter').value,s=$('actStart').value,e=$('actEnd').value,ts=$('actTimeStart').value,te=$('actTimeEnd').value;if(!c||!s||!e)return status($('actStatus'),'請選擇中心與日期範圍。','bad');if(tm(ts)>=tm(te))return status($('actStatus'),'開始時段必須早於結束時段。','bad');status($('actStatus'),'正在讀取原預計送達時間實績…');try{let q=sb.from('dms_promised_30m').select('center_id,restaurant_id,business_date,promised_bucket,tc,order_time_30m,restaurants(id,restaurant_name,region_code)').eq('center_id',c).gte('business_date',s).lte('business_date',e).order('business_date');const {data,error}=await q;if(error)throw error;actualTcRows=data||[];if(!actualTcRows.length)throw new Error('此日期範圍尚無「原預計送達時間」實績。舊 DMS 資料需重新匯入一次才會建立此查詢資料。');renderActualMatrix(actualTcRows,$('actMode').value,s,e);status($('actStatus'),`查詢完成：${s}～${e}｜${ts}–${te}。矩陣依原預計送達時間統計；點 TC 可看落單時間分布。`,'ok')}catch(e){status($('actStatus'),'查詢失敗：'+(e.message||e),'bad')}});
 $('actMode')?.addEventListener('change',()=>{if(actualTcRows.length)renderActualMatrix(actualTcRows,$('actMode').value,$('actStart').value,$('actEnd').value)});
 
 function dateOnly(s){return new Date(s+'T12:00:00')}
