@@ -199,8 +199,8 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="muted">系統歷史訂單資料僅使用 DMS。原始 Excel 只在你的瀏覽器中解析，不上傳、不保存顧客姓名、電話、地址或逐筆訂單。寫入 Supabase 的只有彙總資料：① 落單時間 30 分鐘（供預測）② 原預計送達時間 30 分鐘＋落單時間分布（供 TC 實績查詢）。不保存逐筆顧客資料。</div>
       <div class="drop" style="margin-top:14px">
         <b>選擇 DMS ByOrder Excel</b><br>
-        <span class="muted">支援你目前的 report_by-order 格式</span><br>
-        <input id="dmsFile" type="file" accept=".xlsx,.xls">
+        <span class="muted">支援你目前的 report_by-order 格式；可一次選擇多個檔案，系統會逐檔解析後合併</span><br>
+        <input id="dmsFile" type="file" accept=".xlsx,.xls" multiple>
       </div>
       <div class="actions"><button class="btn" id="dmsParseBtn">解析並檢查</button><button class="btn ghost" id="dmsResetBtn">清除預覽</button></div>
       <div id="dmsStatus" class="status">尚未選擇 DMS 檔案。</div>
@@ -855,7 +855,7 @@ function centerFromAC(ac){
 function regionFromAC(ac){let m=String(ac||'').match(/-([A-Z])\s*$/i);return m?m[1].toUpperCase():null}
 function bucket30(v){let p=dmsParts(v);if(!p)return null;let m=p.mi<30?0:30;return `${String(p.h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`}
 function avg(a){let x=a.filter(v=>Number.isFinite(v));return x.length?x.reduce((p,c)=>p+c,0)/x.length:null}
-function parseDmsWorkbook(file,ab){
+function parseDmsWorkbook(file,ab,seenRows=null){
  const wb=XLSX.read(ab,{type:'array',cellDates:true});
  const ws=wb.Sheets['ByOrder']||wb.Sheets[wb.SheetNames[0]];
  const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
@@ -863,9 +863,14 @@ function parseDmsWorkbook(file,ab){
  const promisedCol=['原預計送達時間','原預計送達','預計送達時間'].find(k=>k in rows[0]);
  const need=['AC','ID','落單時間','自動/手動','指派時間','門市到達時間','外送出發','到達時間','距離','D25'];
  const missing=need.filter(k=>!(k in rows[0])); if(missing.length)throw new Error('缺少欄位：'+missing.join('、'));
- const map=new Map(), promisedMap=new Map(); let valid=0,bad=0,unknownType=0,missingGroup=0,missingPromised=0; const rawDates=new Set(),rawCenters=new Set();
+ const map=new Map(), promisedMap=new Map(); let valid=0,bad=0,duplicate=0,unknownType=0,missingGroup=0,missingPromised=0; const rawDates=new Set(),rawCenters=new Set();
  let before11=0;
  for(const r of rows){
+   if(seenRows){
+     const sig=[r['AC'],r['ID'],r['落單時間'],r['自動/手動'],r['指派時間'],r['門市到達時間'],r['外送出發'],r['到達時間'],promisedCol?r[promisedCol]:''].map(v=>String(v??'').trim()).join('¦');
+     if(seenRows.has(sig)){duplicate++;continue}
+     seenRows.add(sig);
+   }
    const date=localYmd(r['落單時間']), center=centerFromAC(r['AC']), restaurant=String(r['ID']||'').trim(), bucket=bucket30(r['落單時間']), region=regionFromAC(r['AC']);
    if(!date||!center||!restaurant||!bucket){bad++;continue}
    // 營運規則：11:00 前訂單不匯入、不分析。
@@ -896,7 +901,7 @@ function parseDmsWorkbook(file,ab){
    const km=kmValue(r['距離']);if(Number.isFinite(km))a.distance.push(km);
  }
  const agg=[...map.values()].map(a=>({...a,avg_assign_min:avg(a.assign),avg_store_arrival_min:avg(a.store),avg_pickup_min:avg(a.pickup),avg_delivery_min:avg(a.delivery),avg_distance_km:avg(a.distance)}));
- return {agg,promisedAgg:[...promisedMap.values()],promisedCol,valid,bad,before11,unknownType,missingGroup,missingPromised,dates:[...rawDates].sort(),centers:[...rawCenters].sort()};
+ return {agg,promisedAgg:[...promisedMap.values()],promisedCol,valid,bad,duplicate,before11,unknownType,missingGroup,missingPromised,dates:[...rawDates].sort(),centers:[...rawCenters].sort(),fileName:file.name};
 }
 function sumRows(a){
  return {tc:a.reduce((p,x)=>p+x.tc,0),own:a.reduce((p,x)=>p+x.own_tc,0),third:a.reduce((p,x)=>p+x.third_party_tc,0),unknown:a.reduce((p,x)=>p+(x.unknown_tc||0),0)};
@@ -925,24 +930,44 @@ window.showDmsRestaurants=(c,d,g)=>{
 };
 $('dmsParseBtn').onclick=async()=>{
  if(profile?.role!=='op_admin')return status($('dmsStatus'),'只有 OP 可以匯入 DMS。','bad');
- const f=$('dmsFile').files[0];if(!f)return status($('dmsStatus'),'請先選擇 DMS Excel。','bad');
- status($('dmsStatus'),'正在本機解析全市場 DMS；不會上傳逐筆訂單或顧客資料…');
+ const files=[...$('dmsFile').files];if(!files.length)return status($('dmsStatus'),'請先選擇至少一個 DMS Excel。','bad');
+ status($('dmsStatus'),`正在逐檔解析 ${files.length} 個 DMS；不會上傳逐筆訂單或顧客資料…`);
  try{
-   const result=parseDmsWorkbook(f,await f.arrayBuffer());dmsAgg=result.agg;dmsPromisedAgg=result.promisedAgg||[];dmsMeta=result;
-   $('dmsOrders').textContent=result.valid.toLocaleString();$('dmsDates').textContent=fmtDate(result.dates[0])+'–'+fmtDate(result.dates.at(-1));$('dmsDays').textContent=result.dates.length+' 天';
-   $('dmsCenters').textContent=result.centers.join('、');$('dmsAggCount').textContent=result.agg.length.toLocaleString();
-   const body=$('dmsPreviewBody');body.innerHTML='';
-   for(const c of result.centers)for(const d of result.dates){
-     const a=result.agg.filter(x=>x.center_id===c&&x.business_date===d);if(!a.length)continue;
-     const z=sumRows(a);
-     let tr=document.createElement('tr');tr.innerHTML=`<td>中心</td><td><b>${c}</b></td><td>${d}</td><td>${z.tc}</td><td>${z.own}</td><td>${z.third}</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td><td>${a.length}</td><td><button class="btn ghost" onclick="showDmsGroups('${c}','${d}')">展開 Group</button></td>`;body.appendChild(tr);
+   const seenRows=new Set(), results=[];
+   for(let i=0;i<files.length;i++){
+     const f=files[i];
+     status($('dmsStatus'),`正在解析 ${i+1}/${files.length}：${f.name}…`);
+     try{ results.push(parseDmsWorkbook(f,await f.arrayBuffer(),seenRows)); }
+     catch(e){ throw new Error(`${f.name}：${e.message}`); }
+     await new Promise(r=>setTimeout(r,0));
    }
-   const warn=[];
-   if(result.bad)warn.push(`略過 ${result.bad} 筆無法辨識中心／餐廳／落單時間`);
-   if(result.unknownType)warn.push(`${result.unknownType} 筆配送類型不是「自動／手動／第三方」，不會誤算為 OWN`);
-   if(result.missingGroup)warn.push(`${result.missingGroup} 筆 AC 無法辨識 Group`);
-   status($('dmsValidation'),`解析完成：${result.valid.toLocaleString()} 筆。日期依 Excel 顯示的台灣本地日期／時間直接解析，不再經 UTC 轉換。${warn.length?' 注意：'+warn.join('；')+'。':''} 寫入時，同中心重疊日期會先刪除舊彙總再重算。`,'ok');
-   $('dmsDrill').classList.add('hidden');$('dmsPreview').classList.remove('hidden');status($('dmsStatus'),'全市場 DMS 已完成本機彙總；請先展開 Group 核對，尚未寫入 Supabase。','ok');
+   const aggMap=new Map(), promisedMap=new Map();
+   for(const result of results){
+     for(const a of result.agg){
+       const k=[a.center_id,a.region_code||'',a.restaurant_name,a.business_date,a.bucket_time].join('|');
+       if(!aggMap.has(k))aggMap.set(k,{...a,assign:[...(a.assign||[])],store:[...(a.store||[])],pickup:[...(a.pickup||[])],delivery:[...(a.delivery||[])],distance:[...(a.distance||[])]});
+       else{
+         const z=aggMap.get(k); for(const f of ['tc','own_tc','third_party_tc','unknown_tc','d25_tc','d25_hit'])z[f]=(z[f]||0)+(a[f]||0);
+         for(const f of ['assign','store','pickup','delivery','distance'])z[f].push(...(a[f]||[]));
+       }
+     }
+     for(const a of result.promisedAgg){
+       const k=[a.center_id,a.region_code||'',a.restaurant_name,a.business_date,a.promised_bucket].join('|');
+       if(!promisedMap.has(k))promisedMap.set(k,{...a,order_dist:{...(a.order_dist||{})}});
+       else{const z=promisedMap.get(k);z.tc+=a.tc;for(const [b,n] of Object.entries(a.order_dist||{}))z.order_dist[b]=(z.order_dist[b]||0)+n;}
+     }
+   }
+   dmsAgg=[...aggMap.values()].map(a=>({...a,avg_assign_min:avg(a.assign||[]),avg_store_arrival_min:avg(a.store||[]),avg_pickup_min:avg(a.pickup||[]),avg_delivery_min:avg(a.delivery||[]),avg_distance_km:avg(a.distance||[])}));
+   dmsPromisedAgg=[...promisedMap.values()];
+   const dates=[...new Set(results.flatMap(r=>r.dates))].sort(),centers=[...new Set(results.flatMap(r=>r.centers))].sort();
+   dmsMeta={files:files.length,valid:results.reduce((p,r)=>p+r.valid,0),bad:results.reduce((p,r)=>p+r.bad,0),duplicate:results.reduce((p,r)=>p+(r.duplicate||0),0),before11:results.reduce((p,r)=>p+r.before11,0),unknownType:results.reduce((p,r)=>p+r.unknownType,0),missingGroup:results.reduce((p,r)=>p+r.missingGroup,0),missingPromised:results.reduce((p,r)=>p+r.missingPromised,0),dates,centers,fileNames:files.map(f=>f.name)};
+   $('dmsOrders').textContent=dmsMeta.valid.toLocaleString();$('dmsDates').textContent=fmtDate(dates[0])+'–'+fmtDate(dates.at(-1));$('dmsDays').textContent=dates.length+' 天｜'+files.length+' 個檔案';
+   $('dmsCenters').textContent=centers.join('、');$('dmsAggCount').textContent=dmsAgg.length.toLocaleString();
+   const body=$('dmsPreviewBody');body.innerHTML='';
+   for(const c of centers)for(const d of dates){const a=dmsAgg.filter(x=>x.center_id===c&&x.business_date===d);if(!a.length)continue;const z=sumRows(a);let tr=document.createElement('tr');tr.innerHTML=`<td>中心</td><td><b>${c}</b></td><td>${d}</td><td>${z.tc}</td><td>${z.own}</td><td>${z.third}</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td><td>${a.length}</td><td><button class="btn ghost" onclick="showDmsGroups('${c}','${d}')">展開 Group</button></td>`;body.appendChild(tr);}
+   const warn=[];if(dmsMeta.duplicate)warn.push(`跨檔案重複訂單 ${dmsMeta.duplicate.toLocaleString()} 筆已排除`);if(dmsMeta.bad)warn.push(`略過 ${dmsMeta.bad} 筆無法辨識中心／餐廳／落單時間`);if(dmsMeta.unknownType)warn.push(`${dmsMeta.unknownType} 筆配送類型不是「自動／手動／第三方」`);if(dmsMeta.missingGroup)warn.push(`${dmsMeta.missingGroup} 筆 AC 無法辨識 Group`);
+   status($('dmsValidation'),`解析完成：${files.length} 個檔案、有效 ${dmsMeta.valid.toLocaleString()} 筆、11:00前排除 ${dmsMeta.before11.toLocaleString()} 筆。${warn.length?' 注意：'+warn.join('；')+'。':''} 寫入時，同中心＋同日期會以本次合併結果覆蓋。`,'ok');
+   $('dmsDrill').classList.add('hidden');$('dmsPreview').classList.remove('hidden');status($('dmsStatus'),`${files.length} 個 DMS 已逐檔解析並合併；請先展開 Group 核對，尚未寫入 Supabase。`,'ok');
  }catch(e){status($('dmsStatus'),'解析失敗：'+e.message,'bad')}
 };
 async function sbRetry(label,fn,max=3){
@@ -963,7 +988,7 @@ async function sbRetry(label,fn,max=3){
 $('dmsSaveBtn').onclick=async()=>{
  if(profile?.role!=='op_admin'||!dmsAgg.length)return;
  const dates=dmsMeta.dates, centers=dmsMeta.centers;
- if(!confirm(`確認更新全市場 DMS？\n中心：${centers.join('、')}\n日期：${dates[0]} ～ ${dates.at(-1)}\n原始訂單：${dmsMeta.valid.toLocaleString()} 筆\n彙總：${dmsAgg.length.toLocaleString()} 筆\n\n同中心＋同日期的舊彙總會先刪除再重算。`))return;
+ if(!confirm(`確認更新全市場 DMS？\n中心：${centers.join('、')}\n日期：${dates[0]} ～ ${dates.at(-1)}\n檔案：${dmsMeta.files||1} 個\n原始訂單：${dmsMeta.valid.toLocaleString()} 筆\n重複排除：${(dmsMeta.duplicate||0).toLocaleString()} 筆\n彙總：${dmsAgg.length.toLocaleString()} 筆\n\n同中心＋同日期的舊彙總會先刪除再重算。`))return;
  const btn=$('dmsSaveBtn');btn.disabled=true;
  try{
    status($('dmsSaveStatus'),'步驟 1/4：建立／更新餐廳主檔…');
@@ -995,7 +1020,9 @@ $('dmsSaveBtn').onclick=async()=>{
    }
 
    status($('dmsSaveStatus'),'步驟 4/4：寫入30分鐘彙總…');
-   const rows=dmsAgg.map(a=>({center_id:a.center_id,restaurant_id:a.restaurant_id,business_date:a.business_date,bucket_time:a.bucket_time,tc:a.tc,own_tc:a.own_tc,third_party_tc:a.third_party_tc,d25_tc:a.d25_tc,d25_hit:a.d25_hit,avg_assign_min:a.avg_assign_min,avg_store_arrival_min:a.avg_store_arrival_min,avg_pickup_min:a.avg_pickup_min,avg_delivery_min:a.avg_delivery_min,avg_distance_km:a.avg_distance_km,updated_at:new Date().toISOString()}));
+   const rows=dmsAgg.map(a=>({center_id:a.center_id,restaurant_id:rid.get(a.center_id+'|'+a.restaurant_name),business_date:a.business_date,bucket_time:a.bucket_time,tc:a.tc,own_tc:a.own_tc,third_party_tc:a.third_party_tc,d25_tc:a.d25_tc,d25_hit:a.d25_hit,avg_assign_min:a.avg_assign_min,avg_store_arrival_min:a.avg_store_arrival_min,avg_pickup_min:a.avg_pickup_min,avg_delivery_min:a.avg_delivery_min,avg_distance_km:a.avg_distance_km,source:'dms',updated_at:new Date().toISOString()}));
+   const badRows=rows.filter(x=>x.restaurant_id==null);
+   if(badRows.length)throw new Error('寫入前檢查失敗：仍有 '+badRows.length+' 筆彙總缺少 restaurant_id，已停止寫入以避免資料不完整。');
    for(let i=0;i<rows.length;i+=150){
      const part=rows.slice(i,i+150);
      await sbRetry(`寫入彙總 ${i+1}–${i+part.length}`,()=>sb.from('dms_30m').insert(part));
@@ -1006,7 +1033,9 @@ $('dmsSaveBtn').onclick=async()=>{
      const restaurantKeys=[...new Set(dmsPromisedAgg.map(a=>a.center_id+'|'+a.restaurant_name))];
      const missingRid=restaurantKeys.filter(k=>!rid.has(k));
      if(missingRid.length)throw new Error('原預計送達實績找不到餐廳主檔：'+missingRid.slice(0,5).join('、'));
-     const prRows=dmsPromisedAgg.map(a=>({center_id:a.center_id,restaurant_id:a.restaurant_id,business_date:a.business_date,promised_bucket:a.promised_bucket,tc:a.tc,order_time_30m:a.order_dist,updated_at:new Date().toISOString()}));
+     const prRows=dmsPromisedAgg.map(a=>({center_id:a.center_id,restaurant_id:rid.get(a.center_id+'|'+a.restaurant_name),business_date:a.business_date,promised_bucket:a.promised_bucket,tc:a.tc,order_time_30m:a.order_dist,source:'dms',updated_at:new Date().toISOString()}));
+     const badPrRows=prRows.filter(x=>x.restaurant_id==null);
+     if(badPrRows.length)throw new Error('原預計送達實績寫入前檢查失敗：仍有 '+badPrRows.length+' 筆缺少 restaurant_id。');
      const combos=[...new Set(prRows.map(x=>x.center_id+'|'+x.business_date))];
      for(const cd of combos){const [c,d]=cd.split('|');await sbRetry(`清除原預計送達實績 ${c} ${d}`,()=>sb.from('dms_promised_30m').delete().eq('center_id',c).eq('business_date',d));}
      for(let i=0;i<prRows.length;i+=500){const part=prRows.slice(i,i+500);await sbRetry(`寫入原預計送達實績 ${i+1}–${i+part.length}`,()=>sb.from('dms_promised_30m').insert(part));}
