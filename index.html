@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Delivery 班表｜營運建議支援系統</title>
+<title>Delivery OP｜營運決策支援系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -76,6 +76,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
   <div class="refbanner"><b>系統說明：</b>整合班表上傳 TC、歷史數據預測、配送人力、Group 天氣與營運策略，協助外送中心進行每日人力與營運規劃。</div>
   <div class="nav">
     <button class="active" data-page="schedule">一週班表</button>
+    <button data-page="actualtc">TC實績查詢</button>
     <button data-page="demand">TC需求預測</button>
     <button data-page="analysis">班表分析</button><button data-page="opsadvice">營運策略</button>
     <button data-page="import">班表匯入</button>
@@ -195,7 +196,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
     </div>
     <div class="card">
       <h2>OP｜DMS 實際訂單（11:00後）統一匯入</h2>
-      <div class="muted">原始 Excel 只在你的瀏覽器中解析，不上傳、不保存顧客姓名、電話、地址或逐筆訂單。寫入 Supabase 的只有「中心 × 餐廳 × 日期 × 30分鐘」彙總資料。</div>
+      <div class="muted">原始 Excel 只在你的瀏覽器中解析，不上傳、不保存顧客姓名、電話、地址或逐筆訂單。寫入 Supabase 的只有彙總資料：① 落單時間 30 分鐘（供預測）② 原預計送達時間 30 分鐘＋落單時間分布（供 TC 實績查詢）。不保存逐筆顧客資料。</div>
       <div class="drop" style="margin-top:14px">
         <b>選擇 DMS ByOrder Excel</b><br>
         <span class="muted">支援你目前的 report_by-order 格式</span><br>
@@ -222,10 +223,39 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
     </div>
   </section>
 
+  <section id="actualtc" class="page">
+    <div class="card">
+      <h2>TC 實績查詢</h2>
+      <div class="muted">依 DMS「原預計送達時間」統計餐廳每 30 分鐘實際 TC。Group TC＝該 Group 所屬餐廳 TC 加總；中心 TC＝所有 Group TC 加總。點餐廳 × 時段的 TC，可查看這批訂單實際「落單時間」分布。</div>
+      <div class="grid" style="margin-top:14px;grid-template-columns:repeat(5,minmax(0,1fr))">
+        <label>中心<select id="actCenter"></select></label>
+        <label>Group<select id="actGroup"><option value="">全部</option></select></label>
+        <label>餐廳<select id="actRestaurant"><option value="">全部</option></select></label>
+        <label>開始日期<input id="actStart" type="date"></label>
+        <label>結束日期<input id="actEnd" type="date"></label>
+      </div>
+      <div class="actions"><button class="btn" id="actRun">查詢實績</button><label style="margin:0"><select id="actMode"><option value="sum">區間合計</option><option value="avg">日均</option></select></label></div>
+      <div id="actStatus" class="status">請選擇中心與日期範圍。</div>
+    </div>
+    <div id="actResult" class="hidden">
+      <div class="grid">
+        <div class="card kpi"><div class="l">中心 TC</div><div class="v" id="actCenterTc">—</div><div class="small muted">所選日期／篩選條件</div></div>
+        <div class="card kpi"><div class="l">Group TC</div><div class="v" id="actGroupTc">—</div><div class="small muted">所選 Group 餐廳加總</div></div>
+        <div class="card kpi"><div class="l">最高需求時段</div><div class="v" id="actPeak">—</div><div class="small muted">依原預計送達時間</div></div>
+        <div class="card kpi"><div class="l">主要下單時段</div><div class="v" id="actOrderPeak">—</div><div class="small muted">點矩陣 TC 可看細節</div></div>
+      </div>
+      <div class="card">
+        <h2>餐廳 × 30分鐘 TC</h2>
+        <div class="muted">橫向時間＝原預計送達時間；最下方「Group 總計」為畫面中餐廳加總。0 會保留，方便看需求從何時開始。</div>
+        <div id="actMatrix" class="tablewrap"></div>
+      </div>
+      <div id="actOrderDetail" class="card hidden"></div>
+    </div>
+  </section>
   <section id="demand" class="page">
     <div class="card">
       <h2>系統 TC 需求預測</h2>
-      <div class="muted">第一階段採可解釋預測：以 Supabase 的實際 DMS 30分鐘資料為基礎，優先使用同星期歷史；若資料不足，再使用近期同 Group / 餐廳資料。預測使用「落單時間」，不使用班表內的預估 TC。</div>
+      <div class="muted">第一階段採可解釋預測：以 Supabase 的實際 DMS 30分鐘資料為基礎，優先使用同星期歷史；若資料不足，再使用近期同 Group / 餐廳資料。預測需求仍使用「落單時間」建立歷史基準；「原預計送達時間」實績另於「TC實績查詢」查看，避免把查詢與預測混在同一頁。</div>
       <div class="grid" style="margin-top:14px">
         <label>中心<select id="fcCenter"></select></label>
         <label>預測日期<input id="fcDate" type="date"></label>
@@ -294,6 +324,11 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
         <h2>優先處理時段</h2>
         <div class="muted">先列人力不足，再列人力偏緊；連續30分鐘時段會合併成一個事件。</div>
         <div class="tablewrap"><table class="tbl"><thead><tr><th>狀態</th><th>Group</th><th>時間</th><th>OWN 建議承接 TC</th><th>可配送人力</th><th>需求人力</th><th>缺口</th><th>主要需求餐廳（30分鐘預測 TC）</th></tr></thead><tbody id="anAlertBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2>餐廳人力配置建議</h2>
+        <div class="muted">依每個 Group × 30分鐘的預測餐廳需求占比，把「需求人力」分配到主要需求餐廳；另保留必要機動人力。此為配置建議，不改動原班表。</div>
+        <div class="tablewrap"><table class="tbl"><thead><tr><th>時間</th><th>Group</th><th>需求人力</th><th>建議餐廳配置</th><th>機動</th><th>判斷原因</th></tr></thead><tbody id="anRestaurantPlanBody"></tbody></table></div>
       </div>
       <div class="card">
         <h2>天氣預測</h2>
@@ -380,7 +415,7 @@ const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
 const SUPABASE_KEY='sb_publishable_s2X20yOktFUD9uQ1JeMiwg_dWDNsv9j';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CENTERS={I997:'台北',I994:'新北',I995:'桃園',I996:'台中',I998:'台南',I981:'高雄'};
-let profile=null, session=null, activeCenter=null, parsed=[], parsedUploads=[], currentShifts=[], selectedDate=null, dmsAgg=[], dmsMeta=null, fcData=null, anData=null;
+let profile=null, session=null, activeCenter=null, parsed=[], parsedUploads=[], currentShifts=[], selectedDate=null, dmsAgg=[], dmsPromisedAgg=[], dmsMeta=null, fcData=null, anData=null;
 
 const $=id=>document.getElementById(id);
 function status(el,msg,type=''){el.textContent=msg;el.className='status'+(type?' '+type:'')}
@@ -489,7 +524,9 @@ function renderHolidayCompare(){
 }
 updateOldScheduleHint(); renderHolidayCompare();
 
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active');if(b.dataset.page==='holidaycompare')renderHolidayCompare();});
+loadActualTcOptions().catch(()=>{});
+ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{loadActualTcOptions().catch(()=>{});
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.page).classList.add('active');if(b.dataset.page==='holidaycompare')renderHolidayCompare();});
 
 function parseWorkbook(file, ab){
  const wb=XLSX.read(ab,{type:'array',cellDates:true});
@@ -812,9 +849,10 @@ function parseDmsWorkbook(file,ab){
  const ws=wb.Sheets['ByOrder']||wb.Sheets[wb.SheetNames[0]];
  const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
  if(!rows.length)throw new Error('DMS 檔案沒有資料。');
+ const promisedCol=['原預計送達時間','原預計送達','預計送達時間'].find(k=>k in rows[0]);
  const need=['AC','ID','落單時間','自動/手動','指派時間','門市到達時間','外送出發','到達時間','距離','D25'];
  const missing=need.filter(k=>!(k in rows[0])); if(missing.length)throw new Error('缺少欄位：'+missing.join('、'));
- const map=new Map(); let valid=0,bad=0,unknownType=0,missingGroup=0; const rawDates=new Set(),rawCenters=new Set();
+ const map=new Map(), promisedMap=new Map(); let valid=0,bad=0,unknownType=0,missingGroup=0,missingPromised=0; const rawDates=new Set(),rawCenters=new Set();
  let before11=0;
  for(const r of rows){
    const date=localYmd(r['落單時間']), center=centerFromAC(r['AC']), restaurant=String(r['ID']||'').trim(), bucket=bucket30(r['落單時間']), region=regionFromAC(r['AC']);
@@ -822,6 +860,14 @@ function parseDmsWorkbook(file,ab){
    // 營運規則：11:00 前訂單不匯入、不分析。
    if(opMinute(bucket)<660){before11++;continue}
    valid++;if(!region)missingGroup++;rawDates.add(date);rawCenters.add(center);
+   if(promisedCol){
+     const pd=localYmd(r[promisedCol]), pb=bucket30(r[promisedCol]), ob=bucket30(r['落單時間']);
+     if(pd&&pb&&ob&&opMinute(pb)>=660){
+       const pk=[center,region||'',restaurant,pd,pb].join('|');
+       if(!promisedMap.has(pk))promisedMap.set(pk,{center_id:center,region_code:region,restaurant_name:restaurant,business_date:pd,promised_bucket:pb,tc:0,order_dist:{}});
+       const z=promisedMap.get(pk);z.tc++;z.order_dist[ob]=(z.order_dist[ob]||0)+1;
+     }else missingPromised++;
+   }else missingPromised++;
    const key=[center,region||'',restaurant,date,bucket].join('|');
    if(!map.has(key))map.set(key,{center_id:center,region_code:region,restaurant_name:restaurant,business_date:date,bucket_time:bucket,tc:0,own_tc:0,third_party_tc:0,unknown_tc:0,d25_tc:0,d25_hit:0,assign:[],store:[],pickup:[],delivery:[],distance:[]});
    const a=map.get(key);a.tc++;
@@ -839,13 +885,13 @@ function parseDmsWorkbook(file,ab){
    const km=kmValue(r['距離']);if(Number.isFinite(km))a.distance.push(km);
  }
  const agg=[...map.values()].map(a=>({...a,avg_assign_min:avg(a.assign),avg_store_arrival_min:avg(a.store),avg_pickup_min:avg(a.pickup),avg_delivery_min:avg(a.delivery),avg_distance_km:avg(a.distance)}));
- return {agg,valid,bad,before11,unknownType,missingGroup,dates:[...rawDates].sort(),centers:[...rawCenters].sort()};
+ return {agg,promisedAgg:[...promisedMap.values()],promisedCol,valid,bad,before11,unknownType,missingGroup,missingPromised,dates:[...rawDates].sort(),centers:[...rawCenters].sort()};
 }
 function sumRows(a){
  return {tc:a.reduce((p,x)=>p+x.tc,0),own:a.reduce((p,x)=>p+x.own_tc,0),third:a.reduce((p,x)=>p+x.third_party_tc,0),unknown:a.reduce((p,x)=>p+(x.unknown_tc||0),0)};
 }
 function resetDms(){
- $('dmsFile').value='';dmsAgg=[];dmsMeta=null;$('dmsPreview').classList.add('hidden');$('dmsDrill').classList.add('hidden');status($('dmsStatus'),'尚未選擇 DMS 檔案。');
+ $('dmsFile').value='';dmsAgg=[];dmsPromisedAgg=[];dmsMeta=null;$('dmsPreview').classList.add('hidden');$('dmsDrill').classList.add('hidden');status($('dmsStatus'),'尚未選擇 DMS 檔案。');
 }
 $('dmsResetBtn').onclick=resetDms;
 window.showDmsGroups=(c,d)=>{
@@ -871,7 +917,7 @@ $('dmsParseBtn').onclick=async()=>{
  const f=$('dmsFile').files[0];if(!f)return status($('dmsStatus'),'請先選擇 DMS Excel。','bad');
  status($('dmsStatus'),'正在本機解析全市場 DMS；不會上傳逐筆訂單或顧客資料…');
  try{
-   const result=parseDmsWorkbook(f,await f.arrayBuffer());dmsAgg=result.agg;dmsMeta=result;
+   const result=parseDmsWorkbook(f,await f.arrayBuffer());dmsAgg=result.agg;dmsPromisedAgg=result.promisedAgg||[];dmsMeta=result;
    $('dmsOrders').textContent=result.valid.toLocaleString();$('dmsDates').textContent=fmtDate(result.dates[0])+'–'+fmtDate(result.dates.at(-1));$('dmsDays').textContent=result.dates.length+' 天';
    $('dmsCenters').textContent=result.centers.join('、');$('dmsAggCount').textContent=result.agg.length.toLocaleString();
    const body=$('dmsPreviewBody');body.innerHTML='';
@@ -944,6 +990,16 @@ $('dmsSaveBtn').onclick=async()=>{
      await sbRetry(`寫入彙總 ${i+1}–${i+part.length}`,()=>sb.from('dms_30m').insert(part));
      status($('dmsSaveStatus'),`步驟 4/4：已寫入 ${Math.min(i+part.length,rows.length).toLocaleString()} / ${rows.length.toLocaleString()} 筆…`);
    }
+   // 原預計送達時間實績：另存彙總，不改變既有落單時間預測表。
+   if(dmsPromisedAgg.length){
+     const restaurantKeys=[...new Set(dmsPromisedAgg.map(a=>a.center_id+'|'+a.restaurant_name))];
+     const missingRid=restaurantKeys.filter(k=>!rid.has(k));
+     if(missingRid.length)throw new Error('原預計送達實績找不到餐廳主檔：'+missingRid.slice(0,5).join('、'));
+     const prRows=dmsPromisedAgg.map(a=>({center_id:a.center_id,restaurant_id:rid.get(a.center_id+'|'+a.restaurant_name),business_date:a.business_date,promised_bucket:a.promised_bucket,tc:a.tc,order_time_30m:a.order_dist,updated_at:new Date().toISOString()}));
+     const combos=[...new Set(prRows.map(x=>x.center_id+'|'+x.business_date))];
+     for(const cd of combos){const [c,d]=cd.split('|');await sbRetry(`清除原預計送達實績 ${c} ${d}`,()=>sb.from('dms_promised_30m').delete().eq('center_id',c).eq('business_date',d));}
+     for(let i=0;i<prRows.length;i+=500){const part=prRows.slice(i,i+500);await sbRetry(`寫入原預計送達實績 ${i+1}–${i+part.length}`,()=>sb.from('dms_promised_30m').insert(part));}
+   }
    localStorage.setItem('delivery_op_last_dms_import',JSON.stringify({start:dmsMeta.dates[0],end:dmsMeta.dates.at(-1),orders:dmsMeta.valid,saved_at:new Date().toISOString()}));
    status($('dmsSaveStatus'),`✓ 更新成功：${dmsMeta.valid.toLocaleString()} 筆原始訂單 → ${rows.length.toLocaleString()} 筆30分鐘彙總。11:00 前訂單已排除；原始訂單與顧客資料未寫入 Supabase。`,'ok');
    await loadDmsDbStatus();
@@ -951,6 +1007,43 @@ $('dmsSaveBtn').onclick=async()=>{
    status($('dmsSaveStatus'),`寫入中止：${e.message||e}。畫面會保留解析結果，請把這一行錯誤訊息截圖給我；現在可以直接判斷失敗發生在哪個步驟。`,'bad');
  }finally{btn.disabled=false}
 };
+
+async function loadActualTcOptions(){
+ if(!$('actCenter'))return; fillCenters($('actCenter')); if(activeCenter)$('actCenter').value=activeCenter;
+ const today=new Date(), end=new Date(today);end.setDate(end.getDate()-1),start=new Date(end);start.setDate(start.getDate()-27);
+ const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+ if(!$('actStart').value)$('actStart').value=ymd(start);if(!$('actEnd').value)$('actEnd').value=ymd(end);
+ await refreshActualFilters();
+}
+async function refreshActualFilters(){
+ const c=$('actCenter')?.value;if(!c)return;
+ const {data,error}=await sb.from('restaurants').select('id,restaurant_name,region_code').eq('center_id',c).order('region_code').order('restaurant_name');if(error)return;
+ const gs=[...new Set((data||[]).map(x=>x.region_code).filter(Boolean))].sort();$('actGroup').innerHTML='<option value="">全部</option>'+gs.map(g=>`<option>${esc(g)}</option>`).join('');
+ $('actRestaurant').innerHTML='<option value="">全部</option>'+(data||[]).map(x=>`<option value="${x.id}" data-group="${esc(x.region_code||'')}">${esc(x.restaurant_name)}</option>`).join('');
+}
+$('actCenter')?.addEventListener('change',refreshActualFilters);
+$('actGroup')?.addEventListener('change',()=>{const g=$('actGroup').value;for(const o of $('actRestaurant').options){if(!o.value)continue;o.hidden=!!g&&o.dataset.group!==g}if($('actRestaurant').selectedOptions[0]?.hidden)$('actRestaurant').value=''});
+let actualTcRows=[];
+function actualNum(v){return Number(v||0)}
+function renderActualMatrix(rows,mode,start,end){
+ const g=$('actGroup').value,rid=$('actRestaurant').value;
+ let a=rows.filter(x=>(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));
+ const days=[...new Set(a.map(x=>x.business_date))], divisor=mode==='avg'?Math.max(1,days.length):1;
+ const times=[...new Set(a.map(x=>String(x.promised_bucket).slice(0,5)))].sort((x,y)=>tm(x)-tm(y));
+ const rests=[...new Set(a.map(x=>x.restaurants?.restaurant_name||'未知餐廳'))].sort();
+ const cell=new Map();for(const x of a){const k=(x.restaurants?.restaurant_name||'未知餐廳')+'|'+String(x.promised_bucket).slice(0,5);cell.set(k,(cell.get(k)||0)+actualNum(x.tc));}
+ let h='<table class="tbl" style="min-width:'+Math.max(900,180+times.length*78)+'px"><thead><tr><th style="position:sticky;left:0;z-index:3">餐廳</th>'+times.map(t=>`<th>${t}–${dateAddMinutesLabel(t,30)}</th>`).join('')+'<th>總計</th></tr></thead><tbody>';
+ for(const n of rests){h+=`<tr><td style="position:sticky;left:0;background:#fff;z-index:1"><b>${esc(n)}</b></td>`;let rt=0;for(const t of times){const v=(cell.get(n+'|'+t)||0)/divisor;rt+=v;h+=`<td><button class="btn ghost" style="padding:4px 7px;min-width:38px" onclick="showActualOrderDist('${String(n).replaceAll("'","\\'")}','${t}')">${round1(v)}</button></td>`}h+=`<td><b>${round1(rt)}</b></td></tr>`}
+ h+='<tr><td style="position:sticky;left:0;background:#f8fafc"><b>Group 總計</b></td>';let peak={t:'—',v:-1};for(const t of times){const v=rests.reduce((p,n)=>p+(cell.get(n+'|'+t)||0),0)/divisor;if(v>peak.v)peak={t,v};h+=`<td><b>${round1(v)}</b></td>`}const total=a.reduce((p,x)=>p+actualNum(x.tc),0)/divisor;h+=`<td><b>${round1(total)}</b></td></tr></tbody></table>`;$('actMatrix').innerHTML=h;
+ const centerTotal=rows.reduce((p,x)=>p+actualNum(x.tc),0)/divisor,groupTotal=a.reduce((p,x)=>p+actualNum(x.tc),0)/divisor;$('actCenterTc').textContent=round1(centerTotal);$('actGroupTc').textContent=round1(groupTotal);$('actPeak').textContent=peak.t==='—'?'—':`${peak.t}｜${round1(peak.v)} TC`;
+ const od={};for(const x of a)for(const [k,v] of Object.entries(x.order_time_30m||{}))od[k]=(od[k]||0)+Number(v||0);const op=Object.entries(od).sort((a,b)=>b[1]-a[1])[0];$('actOrderPeak').textContent=op?`${op[0].slice(0,5)}｜${round1(op[1]/divisor)} TC`:'—';
+ $('actResult').classList.remove('hidden');
+}
+function dateAddMinutesLabel(t,add){let [h,m]=t.split(':').map(Number),x=h*60+m+add;return `${String(Math.floor(x/60)%24).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`}
+window.showActualOrderDist=(name,time)=>{const g=$('actGroup').value,rid=$('actRestaurant').value,mode=$('actMode').value;let a=actualTcRows.filter(x=>(x.restaurants?.restaurant_name||'未知餐廳')===name&&String(x.promised_bucket).slice(0,5)===time&&(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));const days=[...new Set(a.map(x=>x.business_date))],div=mode==='avg'?Math.max(1,days.length):1,od={};for(const x of a)for(const [k,v] of Object.entries(x.order_time_30m||{}))od[k]=(od[k]||0)+Number(v||0);let entries=Object.entries(od).sort((a,b)=>tm(a[0])-tm(b[0])),total=entries.reduce((p,x)=>p+x[1],0)/div,top=[...entries].sort((a,b)=>b[1]-a[1])[0];let h=`<h2>${esc(name)}｜原預計送達 ${time}–${dateAddMinutesLabel(time,30)}</h2><div class="status"><b>TC：</b>${round1(total)}　｜　<b>主要下單時段：</b>${top?top[0].slice(0,5)+'–'+dateAddMinutesLabel(top[0].slice(0,5),30):'—'}</div><div class="tablewrap"><table class="tbl"><thead><tr><th>實際落單時段</th><th>TC</th><th>占比</th></tr></thead><tbody>`;for(const [t,v0] of entries){const v=v0/div;h+=`<tr><td>${t.slice(0,5)}–${dateAddMinutesLabel(t.slice(0,5),30)}</td><td>${round1(v)}</td><td>${total?(v/total*100).toFixed(1):'0.0'}%</td></tr>`}h+='</tbody></table></div>';$('actOrderDetail').innerHTML=h;$('actOrderDetail').classList.remove('hidden');$('actOrderDetail').scrollIntoView({behavior:'smooth'});};
+$('actRun')?.addEventListener('click',async()=>{const c=$('actCenter').value,s=$('actStart').value,e=$('actEnd').value;if(!c||!s||!e)return status($('actStatus'),'請選擇中心與日期範圍。','bad');status($('actStatus'),'正在讀取原預計送達時間實績…');try{let q=sb.from('dms_promised_30m').select('center_id,restaurant_id,business_date,promised_bucket,tc,order_time_30m,restaurants(id,restaurant_name,region_code)').eq('center_id',c).gte('business_date',s).lte('business_date',e).order('business_date');const {data,error}=await q;if(error)throw error;actualTcRows=data||[];if(!actualTcRows.length)throw new Error('此日期範圍尚無「原預計送達時間」實績。舊 DMS 資料需重新匯入一次才會建立此查詢資料。');renderActualMatrix(actualTcRows,$('actMode').value,s,e);status($('actStatus'),`查詢完成：${s}～${e}。矩陣依原預計送達時間統計；點 TC 可看落單時間分布。`,'ok')}catch(e){status($('actStatus'),'查詢失敗：'+(e.message||e),'bad')}});
+$('actMode')?.addEventListener('change',()=>{if(actualTcRows.length)renderActualMatrix(actualTcRows,$('actMode').value,$('actStart').value,$('actEnd').value)});
+
 function dateOnly(s){return new Date(s+'T12:00:00')}
 function weekday(s){return dateOnly(s).getDay()}
 // 台灣政府行政機關 2026 年放假區間（DGPA 公告）。
@@ -1301,6 +1394,20 @@ function renderOps(alerts,slots,wx){
  return recs;
 }
 
+
+function restaurantStaffPlan(slots){
+ const out=[];
+ for(const x of slots){
+   const entries=[...x.rests.entries()].filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+   const n=Math.max(0,Math.ceil(x.need));if(!entries.length||!n)continue;
+   let mobile=n>=4?1:0,assignable=Math.max(1,n-mobile),total=entries.reduce((p,e)=>p+e[1],0),alloc=entries.map(([name,v])=>({name,v,raw:total?assignable*v/total:0,n:0}));
+   for(const a of alloc)a.n=Math.floor(a.raw);let used=alloc.reduce((p,a)=>p+a.n,0);for(const a of alloc.sort((a,b)=>(b.raw-b.n)-(a.raw-a.n))){if(used>=assignable)break;a.n++;used++}alloc=alloc.filter(a=>a.n>0).sort((a,b)=>b.v-a.v);
+   out.push({time:x.time,group:x.group,need:n,mobile,alloc,reason:`依餐廳預測 OWN TC 占比分配；${entries[0][0]}為此時段主要需求餐廳（${round1(entries[0][1])} TC）`});
+ }
+ return out;
+}
+function renderRestaurantStaffPlan(slots){const body=$('anRestaurantPlanBody');if(!body)return;body.innerHTML='';const plans=restaurantStaffPlan(slots);for(const p of plans){const tr=document.createElement('tr');tr.innerHTML=`<td>${p.time.slice(0,5)}–${dateAddMinutesLabel(p.time.slice(0,5),30)}</td><td><b>${esc(p.group)}</b></td><td>${p.need}</td><td>${p.alloc.map(a=>`${esc(a.name)} ${a.n}人`).join('、')||'—'}</td><td>${p.mobile}人</td><td class="small">${esc(p.reason)}</td>`;body.appendChild(tr)}if(!plans.length)body.innerHTML='<tr><td colspan="6">目前沒有可產生配置建議的需求資料。</td></tr>';return plans;}
+
 $('anRun').onclick=async()=>{
  const center=$('anCenter').value,date=$('anDate').value,days=$('anLookback').value;if(!center||!date)return status($('anStatus'),'請選擇中心與日期。','bad');
  status($('anStatus'),'正在讀取班表與 DMS 歷史資料…');
@@ -1323,6 +1430,7 @@ $('anRun').onclick=async()=>{
    const alerts=mergeAlerts(slots.filter(x=>x.status==='人力不足'||x.status==='人力偏緊'));
    const riderShifts=shifts.filter(x=>x.role!=='duty_manager'),hours=riderShifts.reduce((p,x)=>p+shiftHours(x),0),own=fc.pred.reduce((p,x)=>p+x.own,0);
    anData={center,date,shifts,fc,slots,alerts,wx};
+   anData.restaurantPlans=renderRestaurantStaffPlan(slots);
    renderWeather(wx);
    anData.ops=renderOps(alerts,slots,wx)||[];
     for(const o of anData.ops){
