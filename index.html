@@ -112,7 +112,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="card kpi"><div class="l">行動順序</div><div class="v" style="font-size:18px">調人 → 第三方</div><div class="small muted">再縮距離 → QT → 停單</div></div>
     </div>
     <div class="card">
-      <h2>營運策略</h2>
+      <div class="kfc-meta"><h2 style="margin:0">營運策略</h2><div class="actions"><button class="btn ghost" id="opsExportBtn" type="button">匯出 Excel</button></div></div>
       <p class="note">每個時段只顯示一張策略卡，整合該時段所有 Group。先說明人員如何調動，再說明第三方、外送距離與 QT 是否需要調整；停單只作最後手段。</p>
       <div id="opsAdviceEmpty" class="status">請先到「班表分析」選擇中心與日期並執行分析。</div>
       <div id="opsStrategyTimeline" class="strategy-grid"></div>
@@ -240,7 +240,7 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
         <label>開始時段<select id="actTimeStart"></select></label>
         <label>結束時段<select id="actTimeEnd"></select></label>
       </div>
-      <div class="actions"><button class="btn" id="actRun">查詢實績</button><label style="margin:0"><select id="actMode"><option value="sum">區間合計</option><option value="avg">日均</option></select></label></div>
+      <div class="actions"><button class="btn" id="actRun">查詢實績</button><button class="btn ghost" id="actExportBtn" type="button">匯出 Excel</button><label style="margin:0"><select id="actMode"><option value="sum">區間合計</option><option value="avg">日均</option></select></label></div>
       <div id="actStatus" class="status">請選擇中心與日期範圍。</div>
     </div>
     <div id="actResult" class="hidden">
@@ -265,9 +265,9 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="grid" style="margin-top:14px">
         <label>中心<select id="fcCenter"></select></label>
         <label>預測日期<input id="fcDate" type="date"></label>
-        <label>歷史回看<select id="fcLookback"><option value="56">8週</option><option value="84">12週</option><option value="180">6個月</option><option value="730" selected>24個月</option></select></label>
+        <label>歷史回看<select id="fcLookback"><option value="56" selected>8週（預設）</option><option value="84">12週</option><option value="180">6個月</option><option value="730">24個月</option></select></label>
       </div>
-      <div class="actions"><button class="btn" id="fcRun">產生 TC 預測</button><button class="btn ghost" id="fcCompareBtn">歷史日比較</button></div>
+      <div class="actions"><button class="btn" id="fcRun">產生 TC 預測</button><button class="btn ghost" id="fcCompareBtn">歷史日比較</button><button class="btn ghost" id="fcExportBtn" type="button">匯出 Excel</button></div>
       <div id="fcStatus" class="status">請選擇中心與預測日期。</div>
     </div>
 
@@ -307,9 +307,9 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div class="grid" style="margin-top:14px">
         <label>中心<select id="anCenter"></select></label>
         <label>分析日期<input id="anDate" type="date"></label>
-        <label>歷史回看<select id="anLookback"><option value="56">8週</option><option value="84">12週</option><option value="180">6個月</option><option value="730" selected>24個月</option></select></label>
+        <label>歷史回看<select id="anLookback"><option value="56" selected>8週（預設）</option><option value="84">12週</option><option value="180">6個月</option><option value="730">24個月</option></select></label>
       </div>
-      <div class="actions"><button class="btn" id="anRun">產生人力分析</button></div>
+      <div class="actions"><button class="btn" id="anRun">產生人力分析</button><button class="btn ghost" id="anExportBtn" type="button">匯出 Excel</button></div>
       <div id="anStatus" class="status">請選擇已匯入班表的日期。</div>
     </div>
     <div id="anResult" class="hidden">
@@ -762,7 +762,7 @@ function scheduleTcForGroup(date,group){
 function groupOwnPlan(pred,center,date,group){
  const items=pred.filter(x=>x.group===group),total=items.reduce((p,x)=>p+Number(x.tc||0),0);
  const rs=(currentShifts||[]).filter(x=>x.work_date===date&&x.region_code===group);
- if(!rs.length)return {hours:0,capacity:0,own:0,third:total,reason:'未上傳此 Group 班表，無法配置 OWN 承接'};
+ if(!rs.length)return {hasSchedule:false,hours:0,capacity:null,own:null,third:null,reason:'尚未上傳此 Group 班表，暫不計算 OWN／第三方建議'};
  const hours=operationalRiderHours(rs),capacity=hours*OWN_DAILY_TPLH_TARGET,own=Math.min(total,capacity),third=Math.max(0,total-own);
  let reason=capacity>=total?'班表運能可承接預測需求':'依 11:00 後 Rider 工時 × 全日 OWN TPLH 2.0，超出運能部分建議第三方';
  return {hours,capacity,own,third,reason};
@@ -771,7 +771,7 @@ function applyOwnPlanToForecast(pred,center,date){
  const groups=[...new Set(pred.map(x=>x.group))];
  for(const g of groups){
    const plan=groupOwnPlan(pred,center,date,g),items=pred.filter(x=>x.group===g),total=items.reduce((p,x)=>p+Number(x.tc||0),0);
-   for(const x of items){const share=total?Number(x.tc||0)/total:0;x.recommendedOwn=plan.own*share;x.recommendedThird=plan.third*share;x.ownPlan=plan;}
+   for(const x of items){const share=total?Number(x.tc||0)/total:0;x.recommendedOwn=plan.own==null?null:plan.own*share;x.recommendedThird=plan.third==null?null:plan.third*share;x.ownPlan=plan;}
  }
 }
 function forecastSuggestedOwn(totalTc,center,date,time,group=null){
@@ -1122,6 +1122,37 @@ function renderActualMatrix(rows,mode,start,end,weekdayValue=actualWeekdayValue(
  $('actResult').classList.remove('hidden');
 }
 function dateAddMinutesLabel(t,add){let [h,m]=t.split(':').map(Number),x=h*60+m+add;return `${String(Math.floor(x/60)%24).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`}
+
+function actualExportWorkbook(){
+ try{
+  if(!actualTcRows.length)throw new Error('請先查詢 TC 實績。');
+  const c=$('actCenter').value,g=$('actGroup').value,rid=$('actRestaurant').value,s=$('actStart').value,e=$('actEnd').value,w=actualWeekdayValue(),mode=$('actMode').value;
+  const filtered=actualTcRows.filter(x=>actualInTime(x)&&actualInWeekday(x,w)&&(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));
+  const divisor=mode==='avg'?actualSelectedDayCount(s,e,w):1;
+  if(!filtered.length)throw new Error('目前篩選條件沒有可匯出的 TC 實績。');
+  const wb=XLSX.utils.book_new();
+  const cond=[
+   {'項目':'中心','條件':c},{'項目':'Group','條件':g||'全部'},{'項目':'餐廳','條件':$('actRestaurant').selectedOptions[0]?.textContent||'全部'},
+   {'項目':'日期範圍','條件':`${s}～${e}`},{'項目':'星期','條件':actualWeekdayLabel(w)},{'項目':'符合天數','條件':actualSelectedDayCount(s,e,w)},
+   {'項目':'時段','條件':`${$('actTimeStart').value}–${$('actTimeEnd').value}`},{'項目':'顯示方式','條件':mode==='avg'?'日均':'區間合計'},
+   {'項目':'TC 時間基準','條件':'DMS 原預計送達時間'},{'項目':'資料來源','條件':'目前瀏覽器已載入快取；匯出不重新查詢 Supabase'}
+  ];
+  let ws=XLSX.utils.json_to_sheet(cond);addSheetAutoWidth(ws,cond);XLSX.utils.book_append_sheet(wb,ws,'查詢條件');
+  const times=[...new Set(filtered.map(x=>String(x.promised_bucket).slice(0,5)))].sort((a,b)=>tm(a)-tm(b));
+  const rests=[...new Set(filtered.map(x=>x.restaurants?.restaurant_name||'未知餐廳'))].sort();
+  const cell=new Map();for(const x of filtered){const n=x.restaurants?.restaurant_name||'未知餐廳',t=String(x.promised_bucket).slice(0,5),k=n+'|'+t;cell.set(k,(cell.get(k)||0)+actualNum(x.tc));}
+  const matrix=rests.map(n=>{const row={'餐廳':n};let total=0;for(const t of times){const v=(cell.get(n+'|'+t)||0)/divisor;row[`${t}–${dateAddMinutesLabel(t,30)}`]=round1(v);total+=v}row['總計']=round1(total);return row});
+  const totalRow={'餐廳':'Group 總計'};let grand=0;for(const t of times){const v=rests.reduce((p,n)=>p+(cell.get(n+'|'+t)||0),0)/divisor;totalRow[`${t}–${dateAddMinutesLabel(t,30)}`]=round1(v);grand+=v}totalRow['總計']=round1(grand);matrix.push(totalRow);
+  ws=XLSX.utils.json_to_sheet(matrix);addSheetAutoWidth(ws,matrix);XLSX.utils.book_append_sheet(wb,ws,'TC矩陣');
+  const dist=[];for(const x of filtered){const n=x.restaurants?.restaurant_name||'未知餐廳',pt=String(x.promised_bucket).slice(0,5);for(const [ot,v0] of Object.entries(x.order_time_30m||{})){const v=Number(v0||0)/divisor;if(v)dist.push({'日期':x.business_date,'Group':x.restaurants?.region_code||'','餐廳':n,'原預計送達時段':`${pt}–${dateAddMinutesLabel(pt,30)}`,'實際落單時段':`${String(ot).slice(0,5)}–${dateAddMinutesLabel(String(ot).slice(0,5),30)}`,'TC':round1(v)});}}
+  if(dist.length){ws=XLSX.utils.json_to_sheet(dist);addSheetAutoWidth(ws,dist);XLSX.utils.book_append_sheet(wb,ws,'落單時間分布');}
+  const safe=x=>String(x||'全部').replace(/[\\/:*?"<>|]/g,'-');
+  const name=`TC實績_${safe(c)}_${safe(g||'全部Group')}_${s.replaceAll('-','')}-${e.replaceAll('-','')}_${safe(actualWeekdayLabel(w))}_${mode==='avg'?'日均':'區間合計'}.xlsx`;
+  XLSX.writeFile(wb,name);status($('actStatus'),`✓ 已匯出 ${name}｜使用目前快取資料，未重新讀取 Supabase。`,'ok');
+ }catch(e){status($('actStatus'),'匯出失敗：'+(e.message||e),'bad')}
+}
+$('actExportBtn')?.addEventListener('click',actualExportWorkbook);
+
 window.showActualOrderDist=(name,time)=>{const g=$('actGroup').value,rid=$('actRestaurant').value,mode=$('actMode').value;let a=actualTcRows.filter(x=>actualInWeekday(x)&&(x.restaurants?.restaurant_name||'未知餐廳')===name&&String(x.promised_bucket).slice(0,5)===time&&(!g||x.restaurants?.region_code===g)&&(!rid||String(x.restaurant_id)===String(rid)));const div=mode==='avg'?actualSelectedDayCount($('actStart').value,$('actEnd').value):1,od={};for(const x of a)for(const [k,v] of Object.entries(x.order_time_30m||{}))od[k]=(od[k]||0)+Number(v||0);let entries=Object.entries(od).sort((a,b)=>tm(a[0])-tm(b[0])),total=entries.reduce((p,x)=>p+x[1],0)/div,top=[...entries].sort((a,b)=>b[1]-a[1])[0];let h=`<h2>${esc(name)}｜原預計送達 ${time}–${dateAddMinutesLabel(time,30)}</h2><div class="status"><b>TC：</b>${round1(total)}　｜　<b>主要下單時段：</b>${top?top[0].slice(0,5)+'–'+dateAddMinutesLabel(top[0].slice(0,5),30):'—'}</div><div class="tablewrap"><table class="tbl"><thead><tr><th>實際落單時段</th><th>TC</th><th>占比</th></tr></thead><tbody>`;for(const [t,v0] of entries){const v=v0/div;h+=`<tr><td>${t.slice(0,5)}–${dateAddMinutesLabel(t.slice(0,5),30)}</td><td>${round1(v)}</td><td>${total?(v/total*100).toFixed(1):'0.0'}%</td></tr>`}h+='</tbody></table></div>';$('actOrderDetail').innerHTML=h;$('actOrderDetail').classList.remove('hidden');$('actOrderDetail').scrollIntoView({behavior:'smooth'});};
 $('actRun')?.addEventListener('click',async()=>{const c=$('actCenter').value,s=$('actStart').value,e=$('actEnd').value,ts=$('actTimeStart').value,te=$('actTimeEnd').value;if(!c||!s||!e)return status($('actStatus'),'請選擇中心與日期範圍。','bad');if(tm(ts)>=tm(te))return status($('actStatus'),'開始時段必須早於結束時段。','bad');const key=actualCacheKey(c,s,e);try{if(actualTcCache.has(key)){actualTcRows=actualTcCache.get(key);actualTcLoadedKey=key;actualRenderFromLoaded(`快取命中：${s}～${e}｜已載入 ${actualTcRows.length.toLocaleString()} 筆`);return}status($('actStatus'),'第一次查詢此中心＋日期區間，正在從 Supabase 分批載入…');let all=[],from=0,step=1000;while(true){let q=sb.from('dms_promised_30m').select('center_id,restaurant_id,business_date,promised_bucket,tc,order_time_30m,restaurants(id,restaurant_name,region_code)').eq('center_id',c).gte('business_date',s).lte('business_date',e).order('business_date').range(from,from+step-1);const {data,error}=await q;if(error)throw error;all.push(...(data||[]));if(!data||data.length<step)break;from+=step;if(from>200000)throw new Error('查詢資料超過20萬筆，請縮短日期範圍。');status($('actStatus'),`第一次載入中… ${all.length.toLocaleString()} 筆`)}actualTcRows=all;if(!actualTcRows.length)throw new Error('此日期範圍尚無「原預計送達時間」實績。請確認 DMS 已重新匯入。');actualTcCache.set(key,actualTcRows);actualTcLoadedKey=key;const w=actualWeekdayValue();renderActualMatrix(actualTcRows,$('actMode').value,s,e,w);const days=actualSelectedDayCount(s,e,w);status($('actStatus'),`首次載入完成：${s}～${e}｜${actualWeekdayLabel(w)}｜符合 ${days} 天｜${ts}–${te}｜載入 ${actualTcRows.length.toLocaleString()} 筆。後續切換 Group／餐廳／星期／時段／合計日均皆使用本機快取，不再讀取 Supabase。`,'ok')}catch(e){status($('actStatus'),'查詢失敗：'+(e.message||e),'bad')}});
 $('actMode')?.addEventListener('change',()=>actualRenderFromLoaded('已切換合計／日均'));
@@ -1139,34 +1170,83 @@ function preHolidayInfo(d){
  const next=dateAdd(d,1),r=TW_HOLIDAY_RANGES_2026.find(x=>x[0]===next);
  return r?{name:r[2],start:r[0],end:r[1],referenceWeekday:5}:null;
 }
+function exactHolidayReference(d){
+ const y=Number(d.slice(0,4)), prev=y-1;
+ for(const row of HOLIDAY_COMPARE){
+   const cur=row.find((v,i)=>i>0&&Array.isArray(v)&&v[0]===d);
+   if(!cur)continue;
+   const years=[2025,2026,2027],pi=years.indexOf(prev);
+   if(pi>=0&&row[pi+1])return {name:row[0],date:row[pi+1][0]};
+ }
+ return null;
+}
 function forecastDateType(d){
- const pre=preHolidayInfo(d);if(pre)return {type:'preholiday',label:`${pre.name}前夕`,referenceWeekday:5,reason:`隔日 ${pre.start} 開始放假，歷史取樣改參考星期五`};
- const h=holidayRangeFor(d);if(h)return {type:'holiday',label:h[2],referenceWeekday:weekday(d),reason:'放假日／連假日（目前先標記特殊日；不自行假設固定 TC 增幅）'};
- return {type:'normal',label:'一般日',referenceWeekday:weekday(d),reason:'依實際星期取樣'};
+ const pre=preHolidayInfo(d);if(pre)return {type:'preholiday',label:`${pre.name}前夕`,referenceWeekday:5,reason:`隔日 ${pre.start} 開始放假，歷史取樣改參考最近 8 個星期五`};
+ const href=exactHolidayReference(d);if(href)return {type:'holiday',label:holidayRangeFor(d)?.[2]||href.name,holidayName:href.name,holidayRefDate:href.date,referenceWeekday:weekday(d),reason:`特殊節日優先直接參考去年同節日：${href.name} ${href.date}`};
+ const h=holidayRangeFor(d);if(h)return {type:'holiday',label:h[2],referenceWeekday:weekday(d),reason:'連假中的非節日主日期：使用最近 8 週同星期作備援'};
+ return {type:'normal',label:'一般日',referenceWeekday:weekday(d),reason:'使用最近 8 週同星期'};
 }
 function round1(n){return Math.round(n*10)/10}
 function mean(a){return a.length?a.reduce((p,c)=>p+c,0)/a.length:0}
 function sd(a){if(a.length<2)return 0;let m=mean(a);return Math.sqrt(a.reduce((p,c)=>p+(c-m)**2,0)/(a.length-1))}
-async function loadForecastHistory(center,target,days){
- const end=new Date(dateOnly(target));end.setDate(end.getDate()-1);
- const start=new Date(end);start.setDate(start.getDate()-Number(days)+1);
- const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const forecastHistoryCache=new Map();
+function ymdLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+// 一般歷史樣本排除：固定特殊日、國定假日/連假、連假前夕，以及已人工標記的促銷/颱風事件。
+// 先決定 8 個有效日期，再查 DMS，避免為了排除特殊日而大量讀取 Supabase。
+const FIXED_SPECIAL_DATES={'08-08':'父親節'};
+function fixedSpecialName(d){return FIXED_SPECIAL_DATES[String(d).slice(5)]||''}
+function historicalExclusionReason(d,center){
+ const fixed=fixedSpecialName(d);if(fixed)return fixed;
+ const h=holidayRangeFor(d);if(h)return h[2];
+ const pre=preHolidayInfo(d);if(pre)return `${pre.name}前夕`;
+ const ev=loadEvents().find(e=>eventApplies(e,d,center)&&e.scope!=='group');
+ if(ev)return `${ev.kind}：${ev.name}`;
+ return '';
+}
+function lastValidWeekdayDates(target,wd,count=8,center=''){
+ const out=[],skipped=[],d=new Date(dateOnly(target));d.setDate(d.getDate()-1);
+ let guard=0;
+ while(out.length<count&&guard<730){
+   if(d.getDay()===wd){
+     const ds=ymdLocal(d),reason=historicalExclusionReason(ds,center);
+     if(reason)skipped.push({date:ds,reason}); else out.push(ds);
+   }
+   d.setDate(d.getDate()-1);guard++;
+ }
+ return {dates:out.sort(),skipped};
+}
+async function queryForecastDates(center,dates){
+ dates=[...new Set(dates)].filter(Boolean).sort();if(!dates.length)return [];
+ const key=`${center}|${dates.join(',')}`;if(forecastHistoryCache.has(key))return forecastHistoryCache.get(key);
  let all=[],from=0,step=1000;
  while(true){
    const {data,error}=await sb.from('dms_30m')
     .select('center_id,restaurant_id,business_date,bucket_time,tc,own_tc,third_party_tc,restaurants(id,restaurant_name,region_code)')
-    .eq('center_id',center).gte('business_date',ymd(start)).lte('business_date',ymd(end))
-    .order('business_date').range(from,from+step-1);
-   if(error)throw error; all.push(...(data||[])); if(!data||data.length<step)break; from+=step;
-   if(from>100000)throw new Error('歷史資料筆數過多，請縮短回看期間。');
+    .eq('center_id',center).in('business_date',dates).order('business_date').range(from,from+step-1);
+   if(error)throw error;all.push(...(data||[]));if(!data||data.length<step)break;from+=step;
+   if(from>50000)throw new Error('指定參考日資料筆數異常過多，請檢查 DMS 彙總資料。');
  }
- return all.filter(r=>opMinute(r.bucket_time)>=660);
+ all=all.filter(r=>opMinute(r.bucket_time)>=660);forecastHistoryCache.set(key,all);return all;
+}
+async function loadForecastHistory(center,target,days=56){
+ const dt=forecastDateType(target);
+ // 最省資源：一般日只查 8 個「有效正常日」；連假前夕只查 8 個有效星期五；特殊節日只查去年同節日。
+ if(dt.type==='holiday'&&dt.holidayRefDate){
+   const exact=await queryForecastDates(center,[dt.holidayRefDate]);
+   if(exact.length){exact._forecastDateType=dt;exact._skippedDates=[];return exact;}
+   dt.fallback=true;dt.reason+=`；去年同節日無 DMS，改用最近 8 個有效同星期正常日`;
+ }
+ const pick=lastValidWeekdayDates(target,dt.referenceWeekday,8,center);
+ const rows=await queryForecastDates(center,pick.dates);
+ rows._forecastDateType=dt;rows._skippedDates=pick.skipped;
+ return rows;
 }
 function buildForecast(rows,target){
+ const metaType=rows?._forecastDateType, skipped=rows?._skippedDates||[];
  rows=rows.filter(r=>opMinute(r.bucket_time)>=660);
- const dateType=forecastDateType(target),wd=dateType.referenceWeekday;
+ const dateType=metaType||forecastDateType(target),wd=dateType.referenceWeekday;
  const same=rows.filter(r=>weekday(r.business_date)===wd);
- const source=same.length?same:rows;
+ const source=(dateType.type==='holiday'&&dateType.holidayRefDate&&!dateType.fallback)?rows:(same.length?same:rows);
  const dates=[...new Set(source.map(r=>r.business_date))].sort();
  const byKey=new Map();
  for(const r of source){
@@ -1182,7 +1262,7 @@ function buildForecast(rows,target){
    const tcs=dates.map(d=>Number(perDate.get(d)?.tc||0)), own=dates.map(d=>Number(perDate.get(d)?.own_tc||0)), third=dates.map(d=>Number(perDate.get(d)?.third_party_tc||0));
    pred.push({group:g,restaurant:n,time:t,tc:mean(tcs),own:mean(own),third:mean(third),samples:dates.length,sd:sd(tcs),refs:dates.map(d=>({date:d,tc:Number(perDate.get(d)?.tc||0),own:Number(perDate.get(d)?.own_tc||0),third:Number(perDate.get(d)?.third_party_tc||0)}))});
  }
- return {pred,dates,usedSameWeekday:same.length>0,dateType,referenceWeekday:wd};
+ return {pred,dates,usedSameWeekday:dateType.type==='holiday'&&!dateType.fallback?false:same.length>0,dateType,referenceWeekday:wd,skippedDates:skipped};
 }
 window.showForecastGroup=(g)=>{
  if(!fcData)return;
@@ -1216,14 +1296,14 @@ function renderForecastExtras(){
  const periods=new Map();
  for(const x of fcData.pred){
    const [p,label]=periodOf(x.time);if(!periods.has(p))periods.set(p,{label,tc:0,own:0,third:0});
-   let z=periods.get(p);z.tc+=x.tc;z.own+=Number(x.recommendedOwn||0);z.third+=x.third;
+   let z=periods.get(p);z.tc+=x.tc;if(x.recommendedOwn!=null)z.own+=Number(x.recommendedOwn);else z.noPlan=true;z.third+=x.third;
  }
  const order=['午餐','下午餐','晚餐','消夜','其他'],pb=$('fcPeriodBody');pb.innerHTML='';
  for(const p of order){if(!periods.has(p))continue;const z=periods.get(p),tr=document.createElement('tr');tr.innerHTML=`<td><b>${p}</b></td><td>${z.label}</td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td>${total?(z.tc/total*100).toFixed(1):'0.0'}%</td><td>${z.tc?(z.third/z.tc*100).toFixed(1):'0.0'}%</td>`;pb.appendChild(tr)}
  const gt=new Map();
- for(const x of fcData.pred){const k=x.group+'|'+x.time;if(!gt.has(k))gt.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=gt.get(k);z.tc+=x.tc;z.own+=Number(x.recommendedOwn||0);z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.tc)}
+ for(const x of fcData.pred){const k=x.group+'|'+x.time;if(!gt.has(k))gt.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=gt.get(k);z.tc+=x.tc;if(x.recommendedOwn!=null)z.own+=Number(x.recommendedOwn);else z.noPlan=true;z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.tc)}
  const peaks=[...gt.values()].sort((a,b)=>b.tc-a.tc).slice(0,10),bb=$('fcPeakBody');bb.innerHTML='';
- peaks.forEach((z,i)=>{let top=[...z.rests.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,v])=>`${n} ${round1(v)}`).join('、');let tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${z.time.slice(0,5)}</td><td><b>${esc(z.group)}</b></td><td>${round1(z.tc)}</td><td>${round1(z.own)}</td><td>${round1(Math.max(0,z.tc-z.own))}</td><td class="small">${esc(top)}</td>`;bb.appendChild(tr)});
+ peaks.forEach((z,i)=>{let top=[...z.rests.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,v])=>`${n} ${round1(v)}`).join('、');let tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${z.time.slice(0,5)}</td><td><b>${esc(z.group)}</b></td><td>${round1(z.tc)}</td><td>${z.noPlan?'—':round1(z.own)}</td><td>${z.noPlan?'—':round1(Math.max(0,z.tc-z.own))}</td><td class="small">${esc(top)}</td>`;bb.appendChild(tr)});
 }
 $('fcCompareBtn').onclick=()=>{
  if(!fcData)return status($('fcStatus'),'請先產生一次 TC 預測。','bad');
@@ -1243,11 +1323,11 @@ $('fcRun').onclick=async()=>{
  try{
    const rows=await loadForecastHistory(center,target,days);
    if(!rows.length)throw new Error('此中心在預測日前沒有可用的 DMS 歷史資料。');
-   fcData=buildForecast(rows,target);await applyHistoricalWeatherToForecast(center,target,rows,fcData);applyOwnPlanToForecast(fcData.pred,center,target);
+   fcData=buildForecast(rows,target);fcData.center=center;fcData.target=target;await applyHistoricalWeatherToForecast(center,target,rows,fcData);applyOwnPlanToForecast(fcData.pred,center,target);
    if(!fcData.pred.length)throw new Error('找不到可建立預測的歷史資料。');
-   const tc=fcData.pred.reduce((p,x)=>p+x.tc,0),own=fcData.pred.reduce((p,x)=>p+Number(x.recommendedOwn||0),0);
+   const tc=fcData.pred.reduce((p,x)=>p+x.tc,0),hasOwnPlan=fcData.pred.some(x=>x.recommendedOwn!=null),own=hasOwnPlan?fcData.pred.reduce((p,x)=>p+Number(x.recommendedOwn||0),0):null;
    $('fcTitle').textContent=`${center}｜${target} 系統 TC 需求預測`;
-   $('fcTc').textContent=Math.round(tc).toLocaleString();$('fcOwn').textContent=Math.round(own).toLocaleString();
+   $('fcTc').textContent=Math.round(tc).toLocaleString();$('fcOwn').textContent=own==null?'—':Math.round(own).toLocaleString();
    $('fcRefs').textContent=fcData.dates.length+' 天';$('fcRefDates').textContent=fcData.dates.join('、');
    const cv=tc?Math.sqrt(fcData.pred.reduce((p,x)=>p+x.sd*x.sd,0))/tc:1;
    let conf=fcData.dates.length>=6&&cv<.12?'高':fcData.dates.length>=3&&cv<.25?'中':'低';
@@ -1256,10 +1336,10 @@ $('fcRun').onclick=async()=>{
    $('fcTcNote').textContent=fcData.dateType?.type==='preholiday'
     ?`${fcData.dateType.label}｜參考星期五歷史平均`
     :(fcData.dateType?.type==='holiday'
-      ?`${fcData.dateType.label}｜特殊日標記；目前依週${zhDow[fcData.referenceWeekday]}歷史基準`
+      ?`${fcData.dateType.label}｜${fcData.dateType.holidayRefDate&&!fcData.dateType.fallback?'去年同節日 '+fcData.dateType.holidayRefDate:'去年同節日資料不足，改採最近8週同星期'}`
       :(fcData.usedSameWeekday?'同星期歷史平均':'同星期資料不足，暫用近期資料'));
    const groups=[...new Set(fcData.pred.map(x=>x.group))].sort(),body=$('fcGroupBody');body.innerHTML='';
-   for(const g of groups){const a=fcData.pred.filter(x=>x.group===g),gtc=a.reduce((p,x)=>p+x.tc,0),go=a.reduce((p,x)=>p+Number(x.recommendedOwn||0),0),g3=a.reduce((p,x)=>p+Number(x.recommendedThird||0),0),hist3=a.reduce((p,x)=>p+x.third,0),plan=a[0]?.ownPlan||groupOwnPlan(fcData.pred,center,target,g),stc=scheduleTcForGroup(target,g);let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(gtc)}</td><td>${stc?round1(stc):'—'}</td><td>${round1(plan.hours)} h</td><td><b>${round1(go)}</b></td><td>${round1(g3)}</td><td class="small">${esc(plan.reason)}</td><td>${gtc?(hist3/gtc*100).toFixed(1):'0.0'}%</td><td>${fcData.dates.length}天</td><td><button class="btn ghost" onclick="showForecastGroup('${String(g).replaceAll("'","\\'")}')">展開餐廳</button></td>`;body.appendChild(tr)}
+   for(const g of groups){const a=fcData.pred.filter(x=>x.group===g),gtc=a.reduce((p,x)=>p+x.tc,0),hasPlan=a.some(x=>x.recommendedOwn!=null),go=hasPlan?a.reduce((p,x)=>p+Number(x.recommendedOwn||0),0):null,g3=hasPlan?a.reduce((p,x)=>p+Number(x.recommendedThird||0),0):null,hist3=a.reduce((p,x)=>p+x.third,0),plan=a[0]?.ownPlan||groupOwnPlan(fcData.pred,center,target,g),stc=scheduleTcForGroup(target,g);let tr=document.createElement('tr');tr.innerHTML=`<td><b>${esc(g)}</b></td><td>${round1(gtc)}</td><td>${stc?round1(stc):'—'}</td><td>${round1(plan.hours)} h</td><td><b>${go==null?'—':round1(go)}</b></td><td>${g3==null?'—':round1(g3)}</td><td class="small">${esc(plan.reason)}</td><td>${gtc?(hist3/gtc*100).toFixed(1):'0.0'}%</td><td>${fcData.dates.length}天</td><td><button class="btn ghost" onclick="showForecastGroup('${String(g).replaceAll("'","\\'")}')">展開餐廳</button></td>`;body.appendChild(tr)}
    renderForecastExtras();$('fcCompare').classList.add('hidden');$('fcDetail').classList.add('hidden');$('fcResult').classList.remove('hidden');
    const dateRule=fcData.dateType?.type==='preholiday'?`日期規則：${fcData.dateType.reason}；`:fcData.dateType?.type==='holiday'?`日期標記：${fcData.dateType.label}；`:'';
    status($('fcStatus'),`預測完成。${dateRule}使用 ${fcData.dates.length} 個${fcData.usedSameWeekday?'符合參考星期':'近期'}參考日；${fcData.weatherAdjusted?`另有 ${fcData.weatherAdjusted} 個30分鐘時段依雨天歷史調整。`:'本次無符合條件的雨天歷史調整。'}可展開 Group → 餐廳 → 30分鐘查看計算依據。`,'ok');
@@ -1276,7 +1356,7 @@ async function loadAnalysisSchedule(center,date){
 }
 function groupSlotForecast(pred){
  const m=new Map();
- for(const x of pred){const k=x.group+'|'+x.time;if(!m.has(k))m.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=m.get(k);z.tc+=x.tc;z.own+=Number(x.recommendedOwn||0);z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.own)}
+ for(const x of pred){const k=x.group+'|'+x.time;if(!m.has(k))m.set(k,{group:x.group,time:x.time,tc:0,own:0,rests:new Map()});let z=m.get(k);z.tc+=x.tc;if(x.recommendedOwn!=null)z.own+=Number(x.recommendedOwn);else z.noPlan=true;z.rests.set(x.restaurant,(z.rests.get(x.restaurant)||0)+x.own)}
  return [...m.values()];
 }
 function mergeAlerts(rows){
@@ -1494,10 +1574,12 @@ $('anRun').onclick=async()=>{
  const center=$('anCenter').value,date=$('anDate').value,days=$('anLookback').value;if(!center||!date)return status($('anStatus'),'請選擇中心與日期。','bad');
  status($('anStatus'),'正在讀取班表與 DMS 歷史資料…');
  try{
-   const [shifts,hist,wx]=await Promise.all([loadAnalysisSchedule(center,date),loadForecastHistory(center,date,days),loadWeather(center,date)]);
+   const [shifts,wx]=await Promise.all([loadAnalysisSchedule(center,date),loadWeather(center,date)]);
    if(!shifts.length)throw new Error(`${center} ${date} 尚未找到已寫入的班表。`);
-   if(!hist.length)throw new Error('預測日前沒有 DMS 歷史資料。');
-   const fc=buildForecast(hist,date);await applyHistoricalWeatherToForecast(center,date,hist,fc);const gs=groupSlotForecast(fc.pred);
+   let fc;
+   if(fcData&&fcData.center===center&&fcData.target===date){fc=fcData;}
+   else{const hist=await loadForecastHistory(center,date,56);if(!hist.length)throw new Error('預測日前沒有 DMS 歷史資料。');fc=buildForecast(hist,date);await applyHistoricalWeatherToForecast(center,date,hist,fc);fc.center=center;fc.target=date;}
+   const gs=groupSlotForecast(fc.pred);
    // Current baseline productivity: full-day target 2.0 is used only when history cannot estimate a stable slot requirement.
    // Requirement is expressed as simultaneous riders for a 30-minute demand bucket: OWN TC / (TPLH * 0.5).
    const slots=gs.map(z=>{
@@ -1564,6 +1646,22 @@ function weatherExportRows(){
  if(!anData?.wx?.rows)return [];
  return anData.wx.rows.filter(x=>tm(x.time)>=660).map(x=>({'日期':anData.date,'Group':x.group,'時間':x.time,'天氣':x.text,'降雨機率%':x.pop,'降雨量mm':x.rain,'風速km/h':x.wind,'營運風險':x.risk}));
 }
+
+function forecastExportRows(){
+ if(!fcData)return [];
+ return fcData.pred.slice().sort((a,b)=>a.group.localeCompare(b.group)||a.restaurant.localeCompare(b.restaurant)||a.time.localeCompare(b.time)).map(x=>({
+  '預測日期':$('fcDate').value,'Group':x.group,'餐廳':x.restaurant,'落單時段':`${x.time.slice(0,5)}–${dateAddMinutesLabel(x.time.slice(0,5),30)}`,
+  '歷史數據預測 TC':round1(x.tc),'OWN 建議承接 TC':round1(Number(x.recommendedOwn||0)),'第三方建議 TC':round1(Math.max(0,x.tc-Number(x.recommendedOwn||0))),
+  '歷史第三方 TC(僅參考)':round1(x.third),'參考樣本數':x.samples,'參考日期':(x.refs||[]).map(r=>r.date).join('、')
+ }));
+}
+function downloadForecastWorkbook(){try{const rows=forecastExportRows();if(!rows.length)throw new Error('請先產生 TC 預測。');const wb=XLSX.utils.book_new();let ws=XLSX.utils.json_to_sheet(rows);addSheetAutoWidth(ws,rows);XLSX.utils.book_append_sheet(wb,ws,'TC需求預測');const refs=(fcData.dates||[]).map(d=>({'參考日期':d}));if(refs.length){ws=XLSX.utils.json_to_sheet(refs);addSheetAutoWidth(ws,refs);XLSX.utils.book_append_sheet(wb,ws,'歷史參考日')}const name=`TC需求預測_${$('fcCenter').value}_${$('fcDate').value.replaceAll('-','')}.xlsx`;XLSX.writeFile(wb,name);status($('fcStatus'),`✓ 已匯出 ${name}｜使用目前分析結果，不重新讀取 Supabase。`,'ok')}catch(e){status($('fcStatus'),'匯出失敗：'+(e.message||e),'bad')}}
+function downloadAnalysisWorkbook(){try{if(!anData)throw new Error('請先產生人力分析。');const wb=XLSX.utils.book_new();const ar=analysisExportRows();if(ar.length){let ws=XLSX.utils.json_to_sheet(ar);addSheetAutoWidth(ws,ar);XLSX.utils.book_append_sheet(wb,ws,'人力分析')}const or=opsExportRows();if(or.length){let ws=XLSX.utils.json_to_sheet(or);addSheetAutoWidth(ws,or);XLSX.utils.book_append_sheet(wb,ws,'營運警示')}const plans=(anData.restaurantPlans||[]).map(p=>({'日期':anData.date,'時間':`${p.time.slice(0,5)}–${dateAddMinutesLabel(p.time.slice(0,5),30)}`,'Group':p.group,'需求人力':p.need,'建議餐廳配置':p.alloc.map(a=>`${a.name} ${a.n}人`).join('、'),'機動人力':p.mobile,'判斷原因':p.reason}));if(plans.length){let ws=XLSX.utils.json_to_sheet(plans);addSheetAutoWidth(ws,plans);XLSX.utils.book_append_sheet(wb,ws,'餐廳人力配置')}const wr=weatherExportRows();if(wr.length){let ws=XLSX.utils.json_to_sheet(wr);addSheetAutoWidth(ws,wr);XLSX.utils.book_append_sheet(wb,ws,'天氣預測')}const name=`班表分析_${anData.center}_${anData.date.replaceAll('-','')}.xlsx`;XLSX.writeFile(wb,name);status($('anStatus'),`✓ 已匯出 ${name}｜使用目前分析結果，不重新讀取 Supabase。`,'ok')}catch(e){status($('anStatus'),'匯出失敗：'+(e.message||e),'bad')}}
+function downloadOpsWorkbook(){try{if(!anData)throw new Error('請先到「班表分析」產生分析。');const rows=opsExportRows();if(!rows.length)throw new Error('目前沒有可匯出的營運警示。');const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(rows);addSheetAutoWidth(ws,rows);XLSX.utils.book_append_sheet(wb,ws,'營運策略');const name=`營運策略_${anData.center}_${anData.date.replaceAll('-','')}.xlsx`;XLSX.writeFile(wb,name)}catch(e){alert('匯出失敗：'+(e.message||e))}}
+$('fcExportBtn')?.addEventListener('click',downloadForecastWorkbook);
+$('anExportBtn')?.addEventListener('click',downloadAnalysisWorkbook);
+$('opsExportBtn')?.addEventListener('click',downloadOpsWorkbook);
+
 function downloadWorkbook(includeAnalysis=false){
  try{
   const rows=scheduleRowsForExport(); if(!rows.length)throw new Error('目前沒有已載入的班表可匯出。');
