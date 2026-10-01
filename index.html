@@ -206,6 +206,29 @@ label{display:block;font-size:13px;font-weight:700;margin:13px 0 6px}.btn{border
       <div id="dmsStatus" class="status">尚未選擇 DMS 檔案。</div>
     </div>
 
+    <div class="card">
+      <h2>OP｜Power BI 歷史資料補登</h2>
+      <div class="muted">用於補 DMS 尚未涵蓋的歷史日期。只處理最近 24 個月且 11:00 後資料；同一中心＋日期只要資料庫已有資料就自動跳過，避免與 DMS 重複。之後若再匯入正式 DMS，同日期會由 DMS 重新覆蓋。</div>
+      <div class="drop" style="margin-top:14px">
+        <b>選擇 Power BI 匯出 Excel</b><br><span class="muted">支援 AC、ID、落單時間、預計送達／原預計送達、third_party 等欄位；原始逐筆資料只在瀏覽器解析。</span><br>
+        <input id="pbiFile" type="file" accept=".xlsx,.xls">
+      </div>
+      <div class="actions"><button class="btn" id="pbiParseBtn">解析 Power BI 歷史資料</button><button class="btn ghost" id="pbiResetBtn">清除預覽</button></div>
+      <div id="pbiStatus" class="status">尚未選擇 Power BI 檔案。</div>
+    </div>
+    <div id="pbiPreview" class="card hidden">
+      <h2>Power BI 補登預覽</h2>
+      <div class="grid">
+        <div class="kpi"><div class="l">有效訂單</div><div class="v" id="pbiOrders">0</div><div class="small muted">24個月內、11:00後</div></div>
+        <div class="kpi"><div class="l">日期範圍</div><div class="v" id="pbiDates">—</div><div class="small muted" id="pbiDays"></div></div>
+        <div class="kpi"><div class="l">中心</div><div class="v" id="pbiCenters">—</div><div class="small muted">由 AC 辨識</div></div>
+        <div class="kpi"><div class="l">30分鐘彙總</div><div class="v" id="pbiAggCount">0</div><div class="small muted">實際候選彙總</div></div>
+      </div>
+      <div id="pbiValidation" class="status"></div>
+      <div class="actions"><button class="btn" id="pbiSaveBtn">確認補登 Power BI 歷史資料</button></div>
+      <div id="pbiSaveStatus" class="status">尚未寫入。</div>
+    </div>
+
     <div id="dmsPreview" class="card hidden">
       <h2>寫入前預覽</h2>
       <div class="grid">
@@ -420,7 +443,7 @@ const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
 const SUPABASE_KEY='sb_publishable_s2X20yOktFUD9uQ1JeMiwg_dWDNsv9j';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CENTERS={I997:'台北',I994:'新北',I995:'桃園',I996:'台中',I998:'台南',I981:'高雄'};
-let profile=null, session=null, activeCenter=null, parsed=[], parsedUploads=[], currentShifts=[], selectedDate=null, dmsAgg=[], dmsPromisedAgg=[], dmsMeta=null, fcData=null, anData=null;
+let profile=null, session=null, activeCenter=null, parsed=[], parsedUploads=[], currentShifts=[], selectedDate=null, dmsAgg=[], dmsPromisedAgg=[], dmsMeta=null, pbiAgg=[], pbiPromisedAgg=[], pbiMeta=null, fcData=null, anData=null;
 
 const $=id=>document.getElementById(id);
 function status(el,msg,type=''){el.textContent=msg;el.className='status'+(type?' '+type:'')}
@@ -1011,6 +1034,55 @@ $('dmsSaveBtn').onclick=async()=>{
    status($('dmsSaveStatus'),`寫入中止：${e.message||e}。畫面會保留解析結果，請把這一行錯誤訊息截圖給我；現在可以直接判斷失敗發生在哪個步驟。`,'bad');
  }finally{btn.disabled=false}
 };
+
+
+function pbiThirdParty(v){
+ const x=String(v??'').trim().toLowerCase();
+ return v===true||v===1||x==='1'||x==='true'||x==='y'||x==='yes'||x==='第三方'||x.includes('third');
+}
+function rolling24Start(){
+ const n=new Date(); const d=new Date(n.getFullYear(),n.getMonth()-24,n.getDate());
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parsePowerBiWorkbook(ab){
+ const wb=XLSX.read(ab,{type:'array',cellDates:true}); const ws=wb.Sheets[wb.SheetNames[0]];
+ const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true}); if(!rows.length)throw new Error('Power BI 檔案沒有資料。');
+ const keys=Object.keys(rows[0]); const pick=(arr)=>arr.find(k=>keys.includes(k));
+ const acCol=pick(['AC','ac']), restCol=pick(['ID','餐廳','餐廳ID','店名']), orderCol=pick(['落單時間','訂單時間','下單時間']), promisedCol=pick(['原預計送達時間','預計送達','預計送達時間']), thirdCol=pick(['third_party','Third Party','第三方','配送類型','自動/手動']);
+ if(!acCol||!restCol||!orderCol)throw new Error(`必要欄位不足：需要 AC、ID/餐廳、落單時間。目前欄位：${keys.slice(0,25).join('、')}`);
+ const cutoff=rolling24Start(), map=new Map(), pm=new Map(), dates=new Set(), centers=new Set(); let valid=0,before11=0,tooOld=0,bad=0,missingPromised=0;
+ for(const r of rows){
+   const date=localYmd(r[orderCol]), center=centerFromAC(r[acCol]), region=regionFromAC(r[acCol]), restaurant=String(r[restCol]??'').trim(), bucket=bucket30(r[orderCol]);
+   if(!date||!center||!restaurant||!bucket){bad++;continue} if(date<cutoff){tooOld++;continue} if(opMinute(bucket)<660){before11++;continue}
+   valid++;dates.add(date);centers.add(center); const key=[center,region||'',restaurant,date,bucket].join('|');
+   if(!map.has(key))map.set(key,{center_id:center,region_code:region,restaurant_name:restaurant,business_date:date,bucket_time:bucket,tc:0,own_tc:0,third_party_tc:0,d25_tc:0,d25_hit:0,avg_assign_min:null,avg_store_arrival_min:null,avg_pickup_min:null,avg_delivery_min:null,avg_distance_km:null});
+   const a=map.get(key);a.tc++; if(thirdCol&&pbiThirdParty(r[thirdCol]))a.third_party_tc++;else a.own_tc++;
+   if(promisedCol){const pd=localYmd(r[promisedCol]),pb=bucket30(r[promisedCol]),ob=bucket30(r[orderCol]);if(pd&&pb&&ob&&pd>=cutoff&&opMinute(pb)>=660){const pk=[center,region||'',restaurant,pd,pb].join('|');if(!pm.has(pk))pm.set(pk,{center_id:center,region_code:region,restaurant_name:restaurant,business_date:pd,promised_bucket:pb,tc:0,order_dist:{}});const z=pm.get(pk);z.tc++;z.order_dist[ob]=(z.order_dist[ob]||0)+1}else missingPromised++}else missingPromised++;
+ }
+ return {agg:[...map.values()],promisedAgg:[...pm.values()],valid,before11,tooOld,bad,missingPromised,dates:[...dates].sort(),centers:[...centers].sort(),columns:{acCol,restCol,orderCol,promisedCol,thirdCol},cutoff};
+}
+function resetPbi(){const f=$('pbiFile');if(f)f.value='';pbiAgg=[];pbiPromisedAgg=[];pbiMeta=null;$('pbiPreview')?.classList.add('hidden');status($('pbiStatus'),'尚未選擇 Power BI 檔案。');}
+$('pbiResetBtn')?.addEventListener('click',resetPbi);
+$('pbiParseBtn')?.addEventListener('click',async()=>{
+ if(profile?.role!=='op_admin')return status($('pbiStatus'),'只有 OP 可以補登 Power BI 歷史資料。','bad'); const f=$('pbiFile').files[0];if(!f)return status($('pbiStatus'),'請先選擇 Power BI Excel。','bad');
+ status($('pbiStatus'),'正在本機解析 Power BI 歷史資料；大型檔案可能需要一些時間…');
+ try{const r=parsePowerBiWorkbook(await f.arrayBuffer());pbiAgg=r.agg;pbiPromisedAgg=r.promisedAgg;pbiMeta=r;$('pbiOrders').textContent=r.valid.toLocaleString();$('pbiDates').textContent=r.dates.length?`${fmtDate(r.dates[0])}–${fmtDate(r.dates.at(-1))}`:'—';$('pbiDays').textContent=`${r.dates.length} 天｜24個月起點 ${r.cutoff}`;$('pbiCenters').textContent=r.centers.join('、')||'—';$('pbiAggCount').textContent=r.agg.length.toLocaleString();
+ const notes=[`辨識欄位：AC=${r.columns.acCol}、餐廳=${r.columns.restCol}、落單=${r.columns.orderCol}、預計送達=${r.columns.promisedCol||'未找到'}、第三方=${r.columns.thirdCol||'未找到（將視為 OWN）'}`];if(r.tooOld)notes.push(`排除24個月以前 ${r.tooOld.toLocaleString()} 筆`);if(r.before11)notes.push(`排除11:00前 ${r.before11.toLocaleString()} 筆`);if(r.bad)notes.push(`無法辨識 ${r.bad.toLocaleString()} 筆`);if(r.missingPromised)notes.push(`無法建立預計送達分布 ${r.missingPromised.toLocaleString()} 筆`);status($('pbiValidation'),notes.join('；')+'。尚未寫入資料庫。','ok');$('pbiPreview').classList.remove('hidden');status($('pbiStatus'),'解析完成。按「確認補登」時，系統會先查資料庫，已有資料的中心＋日期會自動跳過。','ok');}catch(e){status($('pbiStatus'),'解析失敗：'+(e.message||e),'bad')}
+});
+async function pbiDb(label,fn){const r=await fn();if(r?.error)throw new Error(`${label}：${r.error.message}`);return r;}
+$('pbiSaveBtn')?.addEventListener('click',async()=>{
+ if(profile?.role!=='op_admin'||!pbiAgg.length)return;const btn=$('pbiSaveBtn');btn.disabled=true;
+ try{status($('pbiSaveStatus'),'檢查資料庫已有日期…');const eligible=new Set();let skipped=[];
+   for(const c of pbiMeta.centers){const ds=[...new Set(pbiAgg.filter(x=>x.center_id===c).map(x=>x.business_date))];if(!ds.length)continue;const q=await pbiDb(`讀取 ${c} 已有日期`,()=>sb.from('dms_30m').select('business_date').eq('center_id',c).gte('business_date',ds[0]).lte('business_date',ds.at(-1)));const exists=new Set((q.data||[]).map(x=>x.business_date));for(const d of ds){if(exists.has(d))skipped.push(`${c}|${d}`);else eligible.add(`${c}|${d}`)}}
+   const ag=pbiAgg.filter(x=>eligible.has(`${x.center_id}|${x.business_date}`));if(!ag.length)throw new Error(`沒有可補登日期；${skipped.length} 個中心×日期已有資料，已全部跳過。`);
+   status($('pbiSaveStatus'),'建立／更新餐廳主檔…');const ru=new Map();ag.forEach(a=>ru.set(a.center_id+'|'+a.restaurant_name,{center_id:a.center_id,region_code:a.region_code,restaurant_name:a.restaurant_name,active:true}));const rests=[...ru.values()];for(let i=0;i<rests.length;i+=100)await pbiDb('更新餐廳主檔',()=>sb.from('restaurants').upsert(rests.slice(i,i+100),{onConflict:'center_id,restaurant_name'}));
+   let dbR=[];for(const c of [...new Set(ag.map(x=>x.center_id))]){const q=await pbiDb(`讀取 ${c} 餐廳`,()=>sb.from('restaurants').select('id,center_id,restaurant_name').eq('center_id',c));dbR.push(...(q.data||[]))}const rid=new Map(dbR.map(r=>[r.center_id+'|'+r.restaurant_name,r.id]));
+   const rows=ag.map(a=>({center_id:a.center_id,restaurant_id:rid.get(a.center_id+'|'+a.restaurant_name),business_date:a.business_date,bucket_time:a.bucket_time,tc:a.tc,own_tc:a.own_tc,third_party_tc:a.third_party_tc,d25_tc:0,d25_hit:0,avg_assign_min:null,avg_store_arrival_min:null,avg_pickup_min:null,avg_delivery_min:null,avg_distance_km:null,updated_at:new Date().toISOString()}));if(rows.some(x=>!x.restaurant_id))throw new Error('部分餐廳無法取得資料庫 ID。');
+   status($('pbiSaveStatus'),`寫入 ${rows.length.toLocaleString()} 筆30分鐘歷史彙總…`);for(let i=0;i<rows.length;i+=150)await pbiDb('寫入 Power BI 彙總',()=>sb.from('dms_30m').insert(rows.slice(i,i+150)));
+   const pr=pbiPromisedAgg.filter(x=>eligible.has(`${x.center_id}|${x.business_date}`)).map(a=>({center_id:a.center_id,restaurant_id:rid.get(a.center_id+'|'+a.restaurant_name),business_date:a.business_date,promised_bucket:a.promised_bucket,tc:a.tc,order_time_30m:a.order_dist,updated_at:new Date().toISOString()})).filter(x=>x.restaurant_id);for(let i=0;i<pr.length;i+=500)await pbiDb('寫入 Power BI 預計送達實績',()=>sb.from('dms_promised_30m').insert(pr.slice(i,i+500)));
+   status($('pbiSaveStatus'),`✓ 補登完成：${eligible.size} 個中心×日期，${rows.length.toLocaleString()} 筆落單30分鐘彙總，${pr.length.toLocaleString()} 筆預計送達彙總；另有 ${skipped.length} 個中心×日期因資料庫已有資料而跳過。正式 DMS 日後仍可直接覆蓋同日期。`,'ok');await loadDmsDbStatus();
+ }catch(e){status($('pbiSaveStatus'),'補登中止：'+(e.message||e),'bad')}finally{btn.disabled=false}
+});
 
 function fillActualCenters(){
  const sel=$('actCenter'); if(!sel)return;
