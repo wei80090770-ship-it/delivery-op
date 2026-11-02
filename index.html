@@ -10,7 +10,7 @@
 <section id="holiday" class="panel view hidden"><h2>節日 TC 比較</h2><div class="flex"><div class="field"><label>年度</label><select id="holidayYear"></select></div><div class="field"><label>節日名稱</label><select id="holidayName"></select></div><button id="runHoliday">比較去年節日</button></div><div class="notice">節日日期來自 Supabase special_days 已維護的資料；若該年度沒有日期，系統會明確提示，不會自行猜測。政府日曆自動同步尚未設定。</div><div id="holidayResult"></div></section>
 <section id="half" class="panel view hidden"><h2>餐廳 × 30 分鐘 TC</h2><div class="flex"><div class="field"><label>開始日期</label><input id="from" type="date"></div><div class="field"><label>結束日期</label><input id="to" type="date"></div><div class="field"><label>餐期</label><select id="meal"><option value="all">全天</option><option value="breakfast">早餐 06:00–10:30</option><option value="lunch">午餐 10:30–14:00</option><option value="tea">下午茶 14:00–17:00</option><option value="dinner">晚餐 17:00–21:00</option><option value="night">消夜 21:00–06:00</option><option value="custom">自訂</option></select></div><div class="field"><label>開始時段</label><input id="timeFrom" type="time" step="1800" value="00:00"></div><div class="field"><label>結束時段</label><input id="timeTo" type="time" step="1800" value="23:30"></div><button id="runHalf">查詢 TC</button><button id="exportHalf">匯出 Excel</button></div><p class="subtle">餐期時間為暫定值，可自行切換自訂；消夜跨午夜分兩段查詢。表格僅呈現有資料的時段。</p><div id="halfResult" class="tablewrap"></div></section>
 <section id="coverage" class="panel view hidden"><h2>資料庫日期</h2><div class="flex"><div class="field"><label>開始日期</label><input id="covFrom" type="date"></div><div class="field"><label>結束日期</label><input id="covTo" type="date"></div><button id="runCoverage">檢查日期</button></div><div class="notice">「無訂單」與「尚未匯入」無法單靠訂單資料區分。未出現訂單的日期標記為「無資料／待確認」，不視為零 TC。</div><div id="covResult"></div></section>
-<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">首次使用請先執行隨附 01_setup.sql。BI 訂單以訂購號碼＋餐廳代碼＋落單時間建立去重鍵；重複匯入會略過已存在的訂單。</div><h3>匯入 BI 訂單 Excel</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、AC（餐廳代碼）、落單時間、預計送達、訂單狀態。依 AC 對應 restaurants.restaurant_code。</p><h3>匯入 Mapping Excel</h3><div class="flex"><input id="mapFile" type="file" accept=".xlsx,.xls"><button id="importMap">更新中心與 Group</button></div><p class="subtle">使用 Worksheet 工作表：STR_NO（餐廳代碼，對應 restaurants.restaurant_code）、CenterName（中心名稱）、Group；CenterID 是外送中心 ID，不作餐廳代碼。會更新 restaurants.center_id 與 tc_groups；歷史 TC 依目前餐廳歸屬查詢。</p><div id="adminMsg" class="progress"></div></section></main>
+<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">首次使用請先執行隨附 01_setup.sql。BI 訂單以訂購號碼＋餐廳名稱對應的餐廳 ID＋落單時間建立去重鍵；重複匯入會略過已存在的訂單。</div><h3>匯入 BI 訂單 Excel</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。</p><h3>匯入 Mapping Excel</h3><div class="flex"><input id="mapFile" type="file" accept=".xlsx,.xls"><button id="importMap">更新中心與 Group</button></div><p class="subtle">使用 Worksheet 工作表：STR_NO（餐廳代碼，對應 restaurants.restaurant_code）、STR_SN（餐廳名稱）、CenterName（中心名稱）、Group；CenterID 是外送中心 ID，不作餐廳代碼。會更新 restaurants.center_id 與 tc_groups；歷史 TC 依目前餐廳歸屬查詢。</p><div id="adminMsg" class="progress"></div></section></main>
 <script>
 'use strict';
 const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
@@ -25,7 +25,7 @@ const sel=(id,items,placeholder='全部')=>{let el=$(id),v=el.value;el.innerHTML
 const err=e=>{console.error(e);alert(e?.message||String(e))};
 async function fetchAll(table,cols='*'){let out=[];for(let i=0;;i+=1000){let {data,error}=await sb.from(table).select(cols).range(i,i+999);if(error)throw error;out.push(...data);if(data.length<1000)break}return out}
 async function boot(){let {data:{session}}=await sb.auth.getSession();if(!session){$('login').classList.remove('hidden');$('app').classList.add('hidden');$('identity').innerHTML='';return}let {data:p,error}=await sb.from('profiles').select('*').eq('user_id',session.user.id).eq('active',true).single();if(error||!p){await sb.auth.signOut();$('loginMsg').textContent='帳號沒有啟用的 profiles 權限';return}profile=p;$('login').classList.add('hidden');$('app').classList.remove('hidden');$('adminTab').classList.toggle('hidden',p.role!=='op_admin');$('identity').innerHTML=`${safe(p.display_name||session.user.email)} <button id="logout" style="margin-left:10px;background:#354762">登出</button>`;$('logout').onclick=async()=>{await sb.auth.signOut();boot()};await reloadMeta();initDates()}
-async function reloadMeta(){try{[restaurants,groups,centers,special]=await Promise.all([fetchAll('restaurants','id,restaurant_code,restaurant_name,center_id,active'),fetchAll('tc_groups','restaurant_id,group_name'),fetchAll('centers','id,name'),fetchAll('special_days','event_date,event_key,event_name,center_id')]);}catch(e){err(e);return}let cs=profile.role==='op_admin'?[['','全市場'],...centers.map(x=>[x.id,x.name])]:centers.filter(x=>x.id===profile.center_id).map(x=>[x.id,x.name]);sel('center',cs);if(profile.role!=='op_admin')$('center').disabled=true;updateFilters();refreshHolidays()}
+async function reloadMeta(){try{[restaurants,groups,centers,special]=await Promise.all([fetchAll('restaurants','id,restaurant_code,restaurant_name,center_id,active'),fetchAll('tc_groups','restaurant_id,group_name,bi_restaurant_name'),fetchAll('centers','id,name'),fetchAll('special_days','event_date,event_key,event_name,center_id')]);}catch(e){err(e);return}let cs=profile.role==='op_admin'?[['','全市場'],...centers.map(x=>[x.id,x.name])]:centers.filter(x=>x.id===profile.center_id).map(x=>[x.id,x.name]);sel('center',cs);if(profile.role!=='op_admin')$('center').disabled=true;updateFilters();refreshHolidays()}
 function updateFilters(){let c=$('center').value,rr=restaurants.filter(r=>!c||r.center_id===c),gm=new Map(groups.map(g=>[String(g.restaurant_id),g.group_name]));sel('group',[['','全部 Group'],...[...new Set(rr.map(r=>gm.get(String(r.id))).filter(Boolean))].sort().map(g=>[g,g])]);let g=$('group').value;rr=rr.filter(r=>!g||gm.get(String(r.id))===g);sel('restaurant',[['','全部餐廳'],...rr.sort((a,b)=>a.restaurant_name.localeCompare(b.restaurant_name)).map(r=>[r.id,`${r.restaurant_code||''} ${r.restaurant_name}`])]);}
 function initDates(){let today=fmt(new Date());$('from').value=add(today,-7);$('to').value=today;$('covFrom').value=add(today,-30);$('covTo').value=today;let weeks=[];for(let i=-110;i<=8;i++){let d=add(monday(today),i*7),end=add(d,6),weekNo=isoWeek(d);weeks.push([d,`${d.slice(0,4)} W${String(weekNo).padStart(2,'0')}（${d.slice(5).replace('-','/')}–${end.slice(5).replace('-','/')}）`])}sel('week',weeks.reverse());$('week').value=monday(today);let ys=[];for(let y=new Date().getFullYear()+1;y>=2023;y--)ys.push([String(y),String(y)]);sel('holidayYear',ys);$('holidayYear').value=String(new Date().getFullYear());refreshHolidays()}
 function isoWeek(s){let d=new Date(s+'T12:00:00');d.setDate(d.getDate()+4-(d.getDay()||7));let y=new Date(d.getFullYear(),0,1);return Math.ceil((((d-y)/86400000)+1)/7)}
@@ -43,7 +43,79 @@ async function runCoverage(){try{let a=$('covFrom').value,b=$('covTo').value;if(
 async function readExcel(file,sheet){if(!file)throw Error('請選擇 Excel');let bytes=await file.arrayBuffer(),wb=XLSX.read(bytes,{type:'array',cellDates:true}),ws=wb.Sheets[sheet]||wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
 function datetime(v){if(v instanceof Date&&!isNaN(v))return `${fmt(v)} ${String(v.getHours()).padStart(2,'0')}:${String(v.getMinutes()).padStart(2,'0')}:${String(v.getSeconds()).padStart(2,'0')}`;if(typeof v==='number'){let p=XLSX.SSF.parse_date_code(v);if(p)return `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')} ${String(p.H).padStart(2,'0')}:${String(p.M).padStart(2,'0')}:${String(p.S).padStart(2,'0')}`}return String(v||'').replace('T',' ').slice(0,19)||null}
 function status(s){$('adminMsg').textContent=s}
-async function importBI(){if(profile.role!=='op_admin')return;try{let f=$('biFile').files[0],data=await readExcel(f),byCode=new Map(restaurants.filter(r=>r.restaurant_code).map(r=>[String(r.restaurant_code).trim().toUpperCase(),r]));let seen=new Set(),unmatched=new Set(),rows=[];for(let [i,r] of data.entries()){let code=String(r.AC||'').trim().toUpperCase(),rest=byCode.get(code),placed=datetime(r['落單時間']),promised=datetime(r['預計送達']),order=String(r['訂購號碼']||'').trim();if(!rest){unmatched.add(code);continue}if(!order||!placed){continue}let key=[code,order,placed].join('|');if(seen.has(key))continue;seen.add(key);rows.push({order_key:key,restaurant_id:rest.id,placed_at:placed,promised_at:promised,status:String(r['訂單狀態']||''),source_file:f.name})}if(unmatched.size)throw Error(`有 ${unmatched.size} 個餐廳代碼無法對應，已停止匯入，請先更新 Mapping：${[...unmatched].slice(0,25).join(', ')}`);if(!confirm(`即將匯入 ${rows.length} 筆去重後 BI 訂單（含取消）。繼續？`))return;let inserted=0;for(let i=0;i<rows.length;i+=300){let {error}=await sb.from('tc_orders').upsert(rows.slice(i,i+300),{onConflict:'order_key',ignoreDuplicates:true});if(error)throw error;inserted+=Math.min(300,rows.length-i);status(`處理 ${inserted}/${rows.length} 筆，重複資料將略過`)}await sb.from('tc_import_log').insert({file_name:f.name,rows_seen:data.length,rows_inserted:rows.length});status(`完成：處理 ${rows.length} 筆；資料庫依 order_key 忽略重複。注意：此處為處理筆數，非實際新增筆數。`)}catch(e){status('匯入失敗：'+e.message);err(e)}}
+function normalizeRestaurantName(value){
+  return String(value??'').normalize('NFKC').trim().toLowerCase()
+    .replace(/[\s\u3000\-－_（）()·．.、，,]/g,'')
+    .replace(/^(肯德基|kfc)/i,'');
+}
+function buildRestaurantNameIndex(){
+  const index=new Map();
+  const add=(name,r)=>{
+    const k=normalizeRestaurantName(name);
+    if(!k)return;
+    if(!index.has(k))index.set(k,new Map());
+    index.get(k).set(String(r.id),r);
+  };
+  for(const r of restaurants)add(r.restaurant_name,r);
+  for(const g of groups){
+    const r=restaurants.find(x=>String(x.id)===String(g.restaurant_id));
+    if(r)add(g.bi_restaurant_name,r);
+  }
+  return index;
+}
+async function importBI(){
+  if(profile.role!=='op_admin')return;
+  try{
+    const f=$('biFile').files[0],data=await readExcel(f);
+    if(!data.length)throw Error('Excel 沒有訂單資料');
+    const headers=Object.keys(data[0]);
+    for(const field of ['訂購號碼','ID','落單時間','預計送達','訂單狀態']){
+      if(!headers.includes(field))throw Error(`BI 缺少必要欄位：${field}`);
+    }
+    const index=buildRestaurantNameIndex(),seen=new Set(),unmatched=new Map(),ambiguous=new Map(),invalid=[];
+    const rows=[];
+    for(let i=0;i<data.length;i++){
+      const r=data[i],name=String(r.ID??'').trim(),keyName=normalizeRestaurantName(name);
+      const matches=[...(index.get(keyName)?.values()||[])];
+      if(matches.length===0){unmatched.set(name,(unmatched.get(name)||0)+1);continue}
+      if(matches.length>1){ambiguous.set(name,matches.map(x=>`${x.restaurant_name} (${x.restaurant_code||x.id})`).join(' / '));continue}
+      const rest=matches[0],placed=datetime(r['落單時間']),promised=datetime(r['預計送達']);
+      const order=String(r['訂購號碼']??'').trim();
+      if(!order||!placed||!promised){
+        if(invalid.length<20)invalid.push(`Excel 第 ${i+2} 列：訂購號碼／落單時間／預計送達缺漏`);
+        continue;
+      }
+      // AC is a delivery-center identifier; never use it as a restaurant identifier.
+      const orderKey=[rest.id,order,placed].join('|');
+      if(seen.has(orderKey))continue;
+      seen.add(orderKey);
+      rows.push({order_key:orderKey,restaurant_id:rest.id,placed_at:placed,promised_at:promised,
+        status:String(r['訂單狀態']??''),source_file:f.name});
+    }
+    if(unmatched.size||ambiguous.size||invalid.length){
+      const lines=[`匯入前驗證未通過，尚未寫入資料。BI 共 ${data.length} 筆。`];
+      if(unmatched.size){lines.push(`\n找不到餐廳名稱（${unmatched.size} 種）：`);
+        for(const [name,count] of [...unmatched].slice(0,35))lines.push(`${name||'(空白)'}：${count} 筆`);}
+      if(ambiguous.size){lines.push(`\n同名對應多家餐廳（${ambiguous.size} 種）：`);
+        for(const [name,targets] of [...ambiguous].slice(0,20))lines.push(`${name} → ${targets}`);}
+      if(invalid.length)lines.push('\n缺少必要訂單資訊：',...invalid);
+      lines.push('\n請先修正 Mapping 的 STR_SN 對照或餐廳主檔名稱，再重新匯入。AC 是中心代碼，不會拿來找餐廳。');
+      status(lines.join('\n'));return;
+    }
+    if(!confirm(`已核對 ${data.length} 筆 BI 資料；去重後準備處理 ${rows.length} 筆（包含取消訂單）。\n依 BI ID 餐廳名稱對應，AC 僅作中心資訊，不作餐廳代碼。\n確定匯入？`))return;
+    let processed=0;
+    for(let i=0;i<rows.length;i+=300){
+      const batch=rows.slice(i,i+300);
+      const {error}=await sb.from('tc_orders').upsert(batch,{onConflict:'order_key',ignoreDuplicates:true});
+      if(error)throw Error(`處理第 ${i+1} 至 ${i+batch.length} 筆時失敗：${error.message}`);
+      processed+=batch.length;
+      status(`BI 匯入處理中：${processed}/${rows.length} 筆（重複訂單由資料庫略過）`);
+    }
+    const {error:logError}=await sb.from('tc_import_log').insert({file_name:f.name,rows_seen:data.length,rows_inserted:rows.length});
+    if(logError)throw Error('訂單已處理，但匯入紀錄寫入失敗：'+logError.message);
+    status(`BI 匯入完成：Excel ${data.length} 筆，去除檔內重複後處理 ${rows.length} 筆；跨檔重複由資料庫略過。處理筆數不等於實際新增筆數。`);
+  }catch(e){status('BI 匯入失敗：'+e.message);console.error(e)}
+}
 function normalizeStoreCode(value){
   let s=String(value??'').trim().toUpperCase().replace(/[\s\u3000-]+/g,'');
   // Only normalize the numeric suffix when both sides use the same TWI/TWB prefix.
@@ -69,6 +141,7 @@ async function importMap(){
       const centerName=String(row.CenterName??'').trim();
       const center=byCenter.get(centerName);
       const group=String(row.Group??'').trim();
+      const restaurantName=String(row.STR_SN??'').trim();
       const problems=[];
       if(!code)problems.push('STR_NO 空白');
       else if(matches.length===0)problems.push('餐廳代碼不存在');
@@ -77,8 +150,9 @@ async function importMap(){
       seen.add(code);
       if(!center)problems.push('中心名稱無法對應：'+centerName);
       if(!group)problems.push('Group 空白');
+      if(!restaurantName)problems.push('STR_SN 餐廳名稱空白');
       if(problems.length){issues.push(`第 ${line} 列 ${code||'(空白)'}：${problems.join('、')}`);continue}
-      updates.push({id:matches[0].id,center_id:center,group_name:group,code});
+      updates.push({id:matches[0].id,center_id:center,group_name:group,bi_restaurant_name:restaurantName,code});
     }
     if(issues.length){
       status(`Mapping 驗證未通過：${issues.length} 筆，尚未更新任何資料。\n`+issues.slice(0,35).join('\n')+(issues.length>35?`\n…另有 ${issues.length-35} 筆`:''));
@@ -90,11 +164,11 @@ async function importMap(){
       const r=updates[i];
       const {error}=await sb.from('restaurants').update({center_id:r.center_id}).eq('id',r.id);
       if(error)throw Error(`${r.code} 更新中心失敗：${error.message}；已完成的項目不會自動回復`);
-      const {error:groupError}=await sb.from('tc_groups').upsert({restaurant_id:r.id,group_name:r.group_name},{onConflict:'restaurant_id'});
+      const {error:groupError}=await sb.from('tc_groups').upsert({restaurant_id:r.id,group_name:r.group_name,bi_restaurant_name:r.bi_restaurant_name},{onConflict:'restaurant_id'});
       if(groupError)throw Error(`${r.code} 更新 Group 失敗：${groupError.message}；已完成的項目不會自動回復`);
       if(i%20===0)status(`Mapping 更新中：${i+1}/${updates.length}`);
     }
-    status(`Mapping 更新完成：${updates.length} 間餐廳，中心與 Group 已更新。`);
+    status(`Mapping 更新完成：${updates.length} 間餐廳，中心、Group 與餐廳名稱別名已更新。`);
     await reloadMeta();
   }catch(e){status('Mapping 失敗：'+e.message);console.error(e)}
 }
