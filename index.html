@@ -10,7 +10,13 @@
 <section id="holiday" class="panel view hidden"><h2>節日 TC 比較</h2><div class="flex"><div class="field"><label>年度</label><select id="holidayYear"></select></div><div class="field"><label>節日名稱</label><select id="holidayName"></select></div><button id="runHoliday">比較去年節日</button></div><div class="notice">節日日期來自 Supabase special_days 已維護的資料；若該年度沒有日期，系統會明確提示，不會自行猜測。政府日曆自動同步尚未設定。</div><div id="holidayResult"></div></section>
 <section id="half" class="panel view hidden"><h2>餐廳 × 30 分鐘 TC</h2><div class="flex"><div class="field"><label>開始日期</label><input id="from" type="date"></div><div class="field"><label>結束日期</label><input id="to" type="date"></div><div class="field"><label>餐期</label><select id="meal"><option value="all">全天</option><option value="breakfast">早餐 06:00–10:30</option><option value="lunch">午餐 10:30–14:00</option><option value="tea">下午茶 14:00–17:00</option><option value="dinner">晚餐 17:00–21:00</option><option value="night">消夜 21:00–06:00</option><option value="custom">自訂</option></select></div><div class="field"><label>開始時段</label><input id="timeFrom" type="time" step="1800" value="00:00"></div><div class="field"><label>結束時段</label><input id="timeTo" type="time" step="1800" value="23:30"></div><button id="runHalf">查詢 TC</button><button id="exportHalf">匯出 Excel</button></div><p class="subtle">餐期時間為暫定值，可自行切換自訂；消夜跨午夜分兩段查詢。表格僅呈現有資料的時段。</p><div id="halfResult" class="tablewrap"></div></section>
 <section id="coverage" class="panel view hidden"><h2>資料庫日期</h2><div class="flex"><div class="field"><label>開始日期</label><input id="covFrom" type="date"></div><div class="field"><label>結束日期</label><input id="covTo" type="date"></div><button id="runCoverage">檢查日期</button></div><div class="notice">「無訂單」與「尚未匯入」無法單靠訂單資料區分。未出現訂單的日期標記為「無資料／待確認」，不視為零 TC。</div><div id="covResult"></div></section>
-<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">首次使用請先執行隨附 01_setup.sql。BI 訂單以訂購號碼＋餐廳名稱對應的餐廳 ID＋落單時間建立去重鍵；重複匯入會略過已存在的訂單。</div><h3>匯入 BI 訂單 Excel</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。</p><h3>匯入 Mapping Excel</h3><div class="flex"><input id="mapFile" type="file" accept=".xlsx,.xls"><button id="importMap">更新中心與 Group</button></div><p class="subtle">使用 Worksheet 工作表：STR_NO（餐廳代碼，對應 restaurants.restaurant_code）、STR_SN（餐廳名稱）、CenterName（中心名稱）、Group；CenterID 是外送中心 ID，不作餐廳代碼。會更新 restaurants.center_id 與 tc_groups；歷史 TC 依目前餐廳歸屬查詢。</p><div id="adminMsg" class="progress"></div></section></main>
+<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">請先確認原本 TC 資料表已建立，再執行隨附 03_master_import.sql。建議先用測試專案驗證。BI 訂單以訂購號碼＋餐廳名稱對應的餐廳 ID＋落單時間建立去重鍵；重複匯入會略過已存在的訂單。</div><h3>① 餐廳店號選單｜自動新增、改名、停業、恢復</h3>
+<div class="flex"><input id="storeFile" type="file" accept=".xlsx,.xls"><div class="field"><label>名單類型</label><select id="storeMode"><option value="full">完整名單（未出現的店號自動停業）</option><option value="partial">部分名單（不自動停業）</option></select></div><button id="importStores">匯入餐廳主檔</button></div>
+<p class="subtle">自動選擇最新「按區_YYYYMMDD」工作表，依店號辨識餐廳。完整名單需至少 100 筆，匯入前預覽新增／更新／停業數量；資料庫一次交易處理。</p>
+<h3>② 外送中心 Mapping｜自動更新中心、Group</h3>
+<div class="flex"><input id="mapFile" type="file" accept=".xlsx,.xls"><button id="importMap">匯入 Mapping</button></div>
+<p class="subtle">使用 Worksheet 的 STR_NO、STR_SN、CenterID、Group。中心代碼 TWI981 自動轉 I981；同店號優先，舊餐廳代碼為空時才使用餐廳名稱對應；整批交易更新。</p>
+<h3>③ 匯入 BI 訂單 Excel</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。</p><div id="adminMsg" class="progress"></div></section></main>
 <script>
 'use strict';
 const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
@@ -30,7 +36,7 @@ function updateFilters(){let c=$('center').value,rr=restaurants.filter(r=>!c||r.
 function initDates(){let today=fmt(new Date());$('from').value=add(today,-7);$('to').value=today;$('covFrom').value=add(today,-30);$('covTo').value=today;let weeks=[];for(let i=-110;i<=8;i++){let d=add(monday(today),i*7),end=add(d,6),weekNo=isoWeek(d);weeks.push([d,`${d.slice(0,4)} W${String(weekNo).padStart(2,'0')}（${d.slice(5).replace('-','/')}–${end.slice(5).replace('-','/')}）`])}sel('week',weeks.reverse());$('week').value=monday(today);let ys=[];for(let y=new Date().getFullYear()+1;y>=2023;y--)ys.push([String(y),String(y)]);sel('holidayYear',ys);$('holidayYear').value=String(new Date().getFullYear());refreshHolidays()}
 function isoWeek(s){let d=new Date(s+'T12:00:00');d.setDate(d.getDate()+4-(d.getDay()||7));let y=new Date(d.getFullYear(),0,1);return Math.ceil((((d-y)/86400000)+1)/7)}
 function filters(){return {p_center:$('center').value||null,p_group:$('group').value||null,p_rest:$('restaurant').value?Number($('restaurant').value):null,p_basis:$('basis').value}}
-async function query(a,b,start=0,end=1440){let {data,error}=await sb.rpc('tc_query',{p_from:a,p_to:b,...filters(),p_start_min:start,p_end_min:end});if(error)throw error;return data||[]}
+async function query(a,b,start=0,end=1440){let all=[];for(let offset=0;;offset+=500){const {data,error}=await sb.rpc('tc_query_page',{p_from:a,p_to:b,...filters(),p_start_min:start,p_end_min:end,p_offset:offset,p_limit:500});if(error)throw error;all.push(...(data||[]));if(!data||data.length<500)break;if(offset>250000)throw Error('查詢結果過多，請縮小日期範圍')}return all}
 const sum=rs=>rs.reduce((a,r)=>a+Number(r.tc),0);
 const table=(heads,rows)=>`<table><thead><tr>${heads.map(h=>`<th>${safe(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(v=>`<td>${v===null?'—':safe(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 async function runWeek(){try{let w=$('week').value,p=add(w,-7),rs=await query(p,add(w,6));let current=[],previous=[],days=['一','二','三','四','五','六','日'];for(let i=0;i<7;i++){let d=add(w,i),pd=add(p,i);current.push(sum(rs.filter(x=>x.business_date===d)));previous.push(sum(rs.filter(x=>x.business_date===pd)))}let rows=days.map((day,i)=>[`${add(w,i).slice(5)}（${day}）`,previous[i].toLocaleString(),current[i].toLocaleString(),(current[i]-previous[i]).toLocaleString(),previous[i]?((current[i]/previous[i]-1)*100).toFixed(1)+'%':'—']);let a=sum(rs.filter(x=>x.business_date>=p&&x.business_date<w)),b=sum(rs.filter(x=>x.business_date>=w));$('weekStats').innerHTML=[['上週 TC',a],['本週 TC',b],['差異',b-a],['成長率',a?((b/a-1)*100).toFixed(1)+'%':'—']].map(([k,v])=>`<div class="stat"><span class="subtle">${k}</span><b>${typeof v==='number'?v.toLocaleString():v}</b></div>`).join('');$('weekTable').innerHTML=table(['本週日期','上週 TC','本週 TC','差異','成長率'],rows);$('weekTable').insertAdjacentHTML('afterend','');}catch(e){err(e)}}
@@ -104,8 +110,8 @@ async function importBI(){
     }
     if(!confirm(`已核對 ${data.length} 筆 BI 資料；去重後準備處理 ${rows.length} 筆（包含取消訂單）。\n依 BI ID 餐廳名稱對應，AC 僅作中心資訊，不作餐廳代碼。\n確定匯入？`))return;
     let processed=0;
-    for(let i=0;i<rows.length;i+=300){
-      const batch=rows.slice(i,i+300);
+    for(let i=0;i<rows.length;i+=200){
+      const batch=rows.slice(i,i+200);
       const {error}=await sb.from('tc_orders').upsert(batch,{onConflict:'order_key',ignoreDuplicates:true});
       if(error)throw Error(`處理第 ${i+1} 至 ${i+batch.length} 筆時失敗：${error.message}`);
       processed+=batch.length;
@@ -121,56 +127,77 @@ function normalizeStoreCode(value){
   // Only normalize the numeric suffix when both sides use the same TWI/TWB prefix.
   return s.replace(/^(TW[IB])0+(\d+)$/,'$1$2');
 }
-async function importMap(){
-  if(profile.role!=='op_admin')return;
-  try{
-    const file=$('mapFile').files[0];
-    const data=await readExcel(file,'Worksheet');
-    const byCode=new Map();
-    for(const r of restaurants){
-      const code=normalizeStoreCode(r.restaurant_code);
-      if(code){if(!byCode.has(code))byCode.set(code,[]);byCode.get(code).push(r)}
-    }
-    const byCenter=new Map(centers.map(c=>[String(c.name).trim(),c.id]));
-    const updates=[],issues=[],seen=new Set();
-    for(let i=0;i<data.length;i++){
-      const row=data[i],line=i+2;
-      // Worksheet: CenterID is the delivery-center identifier, STR_NO is the store code.
-      const code=normalizeStoreCode(row.STR_NO);
-      const matches=byCode.get(code)||[];
-      const centerName=String(row.CenterName??'').trim();
-      const center=byCenter.get(centerName);
-      const group=String(row.Group??'').trim();
-      const restaurantName=String(row.STR_SN??'').trim();
-      const problems=[];
-      if(!code)problems.push('STR_NO 空白');
-      else if(matches.length===0)problems.push('餐廳代碼不存在');
-      else if(matches.length>1)problems.push('資料庫餐廳代碼重複');
-      if(seen.has(code))problems.push('Excel STR_NO 重複');
-      seen.add(code);
-      if(!center)problems.push('中心名稱無法對應：'+centerName);
-      if(!group)problems.push('Group 空白');
-      if(!restaurantName)problems.push('STR_SN 餐廳名稱空白');
-      if(problems.length){issues.push(`第 ${line} 列 ${code||'(空白)'}：${problems.join('、')}`);continue}
-      updates.push({id:matches[0].id,center_id:center,group_name:group,bi_restaurant_name:restaurantName,code});
-    }
-    if(issues.length){
-      status(`Mapping 驗證未通過：${issues.length} 筆，尚未更新任何資料。\n`+issues.slice(0,35).join('\n')+(issues.length>35?`\n…另有 ${issues.length-35} 筆`:''));
-      return;
-    }
-    if(!updates.length)throw Error('Worksheet 沒有可匯入的餐廳資料');
-    if(!confirm(`Mapping 驗證成功，共 ${updates.length} 間餐廳。\n將更新中心及 Group，歷史 TC 會依最新歸屬查詢。確定執行？`))return;
-    for(let i=0;i<updates.length;i++){
-      const r=updates[i];
-      const {error}=await sb.from('restaurants').update({center_id:r.center_id}).eq('id',r.id);
-      if(error)throw Error(`${r.code} 更新中心失敗：${error.message}；已完成的項目不會自動回復`);
-      const {error:groupError}=await sb.from('tc_groups').upsert({restaurant_id:r.id,group_name:r.group_name,bi_restaurant_name:r.bi_restaurant_name},{onConflict:'restaurant_id'});
-      if(groupError)throw Error(`${r.code} 更新 Group 失敗：${groupError.message}；已完成的項目不會自動回復`);
-      if(i%20===0)status(`Mapping 更新中：${i+1}/${updates.length}`);
-    }
-    status(`Mapping 更新完成：${updates.length} 間餐廳，中心、Group 與餐廳名稱別名已更新。`);
-    await reloadMeta();
-  }catch(e){status('Mapping 失敗：'+e.message);console.error(e)}
+function storeCode(x){return String(x??'').trim().toUpperCase().replace(/[\s　]/g,'')}
+function centerCode(x){let v=String(x??'').trim().toUpperCase();return /^TWI\d+$/.test(v)?v.slice(2):v}
+function sheetToRows(ws){return XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false})}
+async function parseStoreFile(file){
+ if(!file)throw Error('請選擇餐廳店號選單 Excel');
+ const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+ const sheets=wb.SheetNames.filter(n=>/^按區_\d{8}$/.test(n)).sort();
+ if(!sheets.length)throw Error('找不到「按區_YYYYMMDD」工作表');
+ const sheet=sheets.at(-1),grid=sheetToRows(wb.Sheets[sheet]);
+ const headerAt=grid.findIndex(row=>row.some(v=>String(v).trim()==='店號')&&row.some(v=>String(v).trim()==='餐廳名稱'));
+ if(headerAt<0)throw Error('找不到店號／餐廳名稱欄位');
+ const head=grid[headerAt].map(v=>String(v).trim()),ci=head.indexOf('店號'),ni=head.indexOf('餐廳名稱');
+ const rows=[],seen=new Set(),issues=[];
+ for(let i=headerAt+1;i<grid.length;i++){
+  const row=grid[i],code=storeCode(row[ci]),name=String(row[ni]??'').trim();
+  if(!code&&!name)continue;
+  if(!/^TW[IB]\d{3,}$/.test(code)||!name){issues.push(`第 ${i+1} 列：店號／名稱格式錯誤`);continue}
+  if(seen.has(code)){issues.push(`第 ${i+1} 列：店號重複 ${code}`);continue}
+  seen.add(code);rows.push({code,name});
+ }
+ if(issues.length)throw Error(`餐廳主檔驗證失敗：\n${issues.slice(0,20).join('\n')}`);
+ if(!rows.length)throw Error('工作表沒有餐廳資料');
+ return {rows,sheet,snapshot:sheet.slice(-8).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3')};
 }
-$('loginBtn').onclick=async()=>{let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)$('loginMsg').textContent=error.message;else boot()};$('tabs').onclick=e=>{let b=e.target.closest('button[data-tab]');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab))};$('center').onchange=()=>{updateFilters();refreshHolidays()};$('group').onchange=updateFilters;$('holidayYear').onchange=refreshHolidays;$('runWeek').onclick=runWeek;$('runHoliday').onclick=runHoliday;$('runHalf').onclick=runHalf;$('runCoverage').onclick=runCoverage;$('importBI').onclick=importBI;$('importMap').onclick=importMap;$('exportHalf').onclick=()=>{if(!halfRows.length)return alert('請先查詢');let ws=XLSX.utils.aoa_to_sheet(halfRows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'餐廳30分鐘TC');XLSX.writeFile(wb,'TC_30分鐘.xlsx')};boot();
+async function importStores(){
+ if(profile?.role!=='op_admin')return;
+ try{
+  const {rows,sheet,snapshot}=await parseStoreFile($('storeFile').files[0]);
+  const full=$('storeMode').value==='full';
+  if(full&&rows.length<100)throw Error('完整名單不足 100 筆，為避免誤關店已停止');
+  const {data:existing,error:readErr}=await sb.from('tc_store_catalog').select('store_code,active');
+  if(readErr)throw Error('讀取餐廳主檔失敗：'+readErr.message+'。請先執行 03_master_import.sql');
+  const old=new Map((existing||[]).map(r=>[r.store_code,r]));const incoming=new Set(rows.map(r=>r.code));
+  const added=rows.filter(r=>!old.has(r.code)).length;
+  const closed=full?[...old.values()].filter(r=>r.active&&!incoming.has(r.store_code)).length:0;
+  const reopened=rows.filter(r=>old.has(r.code)&&!old.get(r.code).active).length;
+  const message=`工作表 ${sheet}｜${rows.length} 家\n新增 ${added} 家，恢復 ${reopened} 家，預計停業 ${closed} 家。\n${full?'完整名單：不在本次名單中的店號會停業':'部分名單：不會自動停業'}\n確認執行？`;
+  if(!confirm(message))return;
+  status('正在以單一資料庫交易更新餐廳主檔…');
+  const {data,error}=await sb.rpc('tc_import_store_catalog',{p_rows:rows,p_full:full,p_snapshot:snapshot});
+  if(error)throw Error(error.message);
+  status(`餐廳主檔匯入成功：${JSON.stringify(data)}\n下一步：匯入 Mapping。`);await reloadMeta();
+ }catch(e){status('餐廳主檔匯入失敗：'+e.message);console.error(e)}
+}
+async function importMap(){
+ if(profile?.role!=='op_admin')return;
+ try{
+  const file=$('mapFile').files[0];if(!file)throw Error('請選擇 Mapping Excel');
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),ws=wb.Sheets['Worksheet'];
+  if(!ws)throw Error('找不到 Worksheet 工作表');
+  const grid=sheetToRows(ws),head=grid[0].map(v=>String(v).trim());
+  const idx=Object.fromEntries(['STR_NO','STR_SN','CenterID','Group'].map(k=>[k,head.indexOf(k)]));
+  if(Object.values(idx).some(x=>x<0))throw Error('Worksheet 缺少 STR_NO／STR_SN／CenterID／Group');
+  const rows=[],issues=[],seen=new Set();
+  for(let i=1;i<grid.length;i++){
+   const line=grid[i],code=storeCode(line[idx.STR_NO]),name=String(line[idx.STR_SN]??'').trim(),center=centerCode(line[idx.CenterID]),group=String(line[idx.Group]??'').trim();
+   if(!code&&!name)continue;
+   if(!code||!name||!center||!group||group==='0'){issues.push(`第 ${i+1} 列：欄位缺漏`);continue}
+   if(seen.has(code)){issues.push(`第 ${i+1} 列：店號重複 ${code}`);continue}
+   seen.add(code);rows.push({code,name,center,group});
+  }
+  if(issues.length)throw Error(issues.slice(0,20).join('\n'));
+  if(!rows.length)throw Error('沒有可匯入的 Mapping 資料');
+  const centerSet=new Set(centers.map(c=>c.id));const bad=rows.filter(r=>!centerSet.has(r.center));
+  if(bad.length)throw Error('找不到中心代碼：'+bad.slice(0,12).map(r=>r.code+'→'+r.center).join('、'));
+  if(!confirm(`Mapping 共 ${rows.length} 家，將以單一交易更新店號、中心及 Group。\n原有歷史 TC 不刪除，依最新中心歸屬查詢。確定？`))return;
+  status('正在以單一資料庫交易更新 Mapping…');
+  const {data,error}=await sb.rpc('tc_import_mapping',{p_rows:rows});
+  if(error)throw Error(error.message);
+  status('Mapping 更新成功：'+JSON.stringify(data)+'\n下一步：匯入 BI。');await reloadMeta();
+ }catch(e){status('Mapping 匯入失敗：'+e.message);console.error(e)}
+}
+$('loginBtn').onclick=async()=>{let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)$('loginMsg').textContent=error.message;else boot()};$('tabs').onclick=e=>{let b=e.target.closest('button[data-tab]');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab))};$('center').onchange=()=>{updateFilters();refreshHolidays()};$('group').onchange=updateFilters;$('holidayYear').onchange=refreshHolidays;$('runWeek').onclick=runWeek;$('runHoliday').onclick=runHoliday;$('runHalf').onclick=runHalf;$('runCoverage').onclick=runCoverage;$('importBI').onclick=importBI;$('importMap').onclick=importMap;$('importStores').onclick=importStores;$('exportHalf').onclick=()=>{if(!halfRows.length)return alert('請先查詢');let ws=XLSX.utils.aoa_to_sheet(halfRows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'餐廳30分鐘TC');XLSX.writeFile(wb,'TC_30分鐘.xlsx')};boot();
 </script></body></html>
