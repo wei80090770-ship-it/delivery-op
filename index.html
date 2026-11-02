@@ -69,58 +69,59 @@ function buildRestaurantNameIndex(){
   }
   return index;
 }
+function downloadBIFailures(items){
+  const headers=['Excel列號','訂購號碼','餐廳名稱','失敗原因'];
+  const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const csv='\ufeff'+[headers,...items.map(x=>[x.line,x.order,x.name,x.reason])].map(row=>row.map(esc).join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='BI_匯入失敗明細_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 async function importBI(){
   if(profile.role!=='op_admin')return;
+  const button=$('importBI');button.disabled=true;
+  let failures=[],inserted=0,duplicates=0,fileDuplicates=0,completed=0,total=0;
+  const show=message=>{
+    const lines=[`BI 總筆數：${total.toLocaleString()}；成功新增：${inserted.toLocaleString()}；重複略過：${(duplicates+fileDuplicates).toLocaleString()}；失敗：${failures.length.toLocaleString()}`];
+    status(lines.join('\n')+'\n'+message);
+    let old=$('biFailuresDownload');if(old)old.remove();
+    if(failures.length){const btn=document.createElement('button');btn.id='biFailuresDownload';btn.type='button';btn.textContent=`下載失敗明細 CSV（${failures.length} 筆）`;btn.style.marginTop='10px';btn.onclick=()=>downloadBIFailures(failures);$('adminMsg').insertAdjacentElement('afterend',btn)}
+  };
   try{
     const f=$('biFile').files[0],data=await readExcel(f);
-    if(!data.length)throw Error('Excel 沒有訂單資料');
+    if(!data.length)throw Error('Excel 沒有訂單資料');total=data.length;
     const headers=Object.keys(data[0]);
-    for(const field of ['訂購號碼','ID','落單時間','預計送達','訂單狀態']){
-      if(!headers.includes(field))throw Error(`BI 缺少必要欄位：${field}`);
-    }
-    const index=buildRestaurantNameIndex(),seen=new Set(),unmatched=new Map(),ambiguous=new Map(),invalid=[];
-    const rows=[];
+    for(const field of ['訂購號碼','ID','落單時間','預計送達','訂單狀態'])if(!headers.includes(field))throw Error(`BI 缺少必要欄位：${field}`);
+    const index=buildRestaurantNameIndex(),seen=new Set(),rows=[];
     for(let i=0;i<data.length;i++){
-      const r=data[i],name=String(r.ID??'').trim(),keyName=normalizeRestaurantName(name);
-      const matches=[...(index.get(keyName)?.values()||[])];
-      if(matches.length===0){unmatched.set(name,(unmatched.get(name)||0)+1);continue}
-      if(matches.length>1){ambiguous.set(name,matches.map(x=>`${x.restaurant_name} (${x.restaurant_code||x.id})`).join(' / '));continue}
-      const rest=matches[0],placed=datetime(r['落單時間']),promised=datetime(r['預計送達']);
-      const order=String(r['訂購號碼']??'').trim();
-      if(!order||!placed||!promised){
-        if(invalid.length<20)invalid.push(`Excel 第 ${i+2} 列：訂購號碼／落單時間／預計送達缺漏`);
-        continue;
-      }
-      // AC is a delivery-center identifier; never use it as a restaurant identifier.
-      const orderKey=[rest.id,order,placed].join('|');
-      if(seen.has(orderKey))continue;
+      const r=data[i],name=String(r.ID??'').trim(),order=String(r['訂購號碼']??'').trim();
+      const fail=reason=>failures.push({line:i+2,order,name,reason});
+      if(!name){fail('餐廳名稱空白');continue}
+      const matches=[...(index.get(normalizeRestaurantName(name))?.values()||[])];
+      if(!matches.length){fail('餐廳名稱無法對應主檔');continue}
+      if(matches.length>1){fail('餐廳名稱對應多家餐廳');continue}
+      const placed=datetime(r['落單時間']),promised=datetime(r['預計送達']);
+      if(!order||!placed||!promised){fail('訂購號碼／落單時間／預計送達缺漏');continue}
+      const rest=matches[0],orderKey=[rest.id,order,placed].join('|');
+      if(seen.has(orderKey)){fileDuplicates++;continue}
       seen.add(orderKey);
-      rows.push({order_key:orderKey,restaurant_id:rest.id,placed_at:placed,promised_at:promised,
-        status:String(r['訂單狀態']??''),source_file:f.name});
+      rows.push({line:i+2,order,name,record:{order_key:orderKey,restaurant_id:rest.id,placed_at:placed,promised_at:promised,status:String(r['訂單狀態']??''),source_file:f.name}});
     }
-    if(unmatched.size||ambiguous.size||invalid.length){
-      const lines=[`匯入前驗證未通過，尚未寫入資料。BI 共 ${data.length} 筆。`];
-      if(unmatched.size){lines.push(`\n找不到餐廳名稱（${unmatched.size} 種）：`);
-        for(const [name,count] of [...unmatched].slice(0,35))lines.push(`${name||'(空白)'}：${count} 筆`);}
-      if(ambiguous.size){lines.push(`\n同名對應多家餐廳（${ambiguous.size} 種）：`);
-        for(const [name,targets] of [...ambiguous].slice(0,20))lines.push(`${name} → ${targets}`);}
-      if(invalid.length)lines.push('\n缺少必要訂單資訊：',...invalid);
-      lines.push('\n請先修正 Mapping 的 STR_SN 對照或餐廳主檔名稱，再重新匯入。AC 是中心代碼，不會拿來找餐廳。');
-      status(lines.join('\n'));return;
+    show(`已完成 Excel 驗證，準備寫入 ${rows.length.toLocaleString()} 筆有效資料。`);
+    if(!confirm(`BI 共 ${total.toLocaleString()} 筆；有效待寫入 ${rows.length.toLocaleString()} 筆；檔內重複 ${fileDuplicates.toLocaleString()} 筆；驗證失敗 ${failures.length.toLocaleString()} 筆。\n將略過異常並繼續匯入，確定嗎？`))return;
+    // PostgreSQL ON CONFLICT DO NOTHING + SELECT returns only actually inserted rows.
+    // Split failed batches recursively so one invalid record does not block the other records.
+    async function writeChunk(chunk){
+      const {data:added,error}=await sb.from('tc_orders').upsert(chunk.map(x=>x.record),{onConflict:'order_key',ignoreDuplicates:true}).select('order_key');
+      if(!error){inserted+=(added||[]).length;duplicates+=chunk.length-(added||[]).length;completed+=chunk.length;return}
+      if(chunk.length===1){const x=chunk[0];failures.push({line:x.line,order:x.order,name:x.name,reason:'資料庫寫入失敗：'+error.message});completed++;return}
+      const mid=Math.floor(chunk.length/2);await writeChunk(chunk.slice(0,mid));await writeChunk(chunk.slice(mid));
     }
-    if(!confirm(`已核對 ${data.length} 筆 BI 資料；去重後準備處理 ${rows.length} 筆（包含取消訂單）。\n依 BI ID 餐廳名稱對應，AC 僅作中心資訊，不作餐廳代碼。\n確定匯入？`))return;
-    let processed=0;
-    for(let i=0;i<rows.length;i+=200){
-      const batch=rows.slice(i,i+200);
-      const {error}=await sb.from('tc_orders').upsert(batch,{onConflict:'order_key',ignoreDuplicates:true});
-      if(error)throw Error(`處理第 ${i+1} 至 ${i+batch.length} 筆時失敗：${error.message}`);
-      processed+=batch.length;
-      status(`BI 匯入處理中：${processed}/${rows.length} 筆（重複訂單由資料庫略過）`);
-    }
-    const {error:logError}=await sb.from('tc_import_log').insert({file_name:f.name,rows_seen:data.length,rows_inserted:rows.length});
-    if(logError)throw Error('訂單已處理，但匯入紀錄寫入失敗：'+logError.message);
-    status(`BI 匯入完成：Excel ${data.length} 筆，去除檔內重複後處理 ${rows.length} 筆；跨檔重複由資料庫略過。處理筆數不等於實際新增筆數。`);
-  }catch(e){status('BI 匯入失敗：'+e.message);console.error(e)}
+    for(let i=0;i<rows.length;i+=200){await writeChunk(rows.slice(i,i+200));show(`寫入進度：${completed.toLocaleString()} / ${rows.length.toLocaleString()} 筆`)}
+    // The log is supplemental. A logging failure must not reclassify successful orders as failures.
+    const {error:logError}=await sb.from('tc_import_log').insert({file_name:f.name,rows_seen:total,rows_inserted:inserted});
+    show(`匯入完成。${logError?'注意：匯入紀錄寫入失敗（訂單仍已處理）：'+logError.message:'已記錄匯入結果。'}\n可下載失敗明細；取消訂單同樣納入匯入。`);
+  }catch(e){show('匯入中斷：'+e.message+'。已成功寫入的訂單不會回復；重新匯入會略過重複。');console.error(e)}
+  finally{button.disabled=false}
 }
 function normalizeStoreCode(value){
   let s=String(value??'').trim().toUpperCase().replace(/[\s\u3000-]+/g,'');
