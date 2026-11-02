@@ -10,13 +10,13 @@
 <section id="holiday" class="panel view hidden"><h2>節日 TC 比較</h2><div class="flex"><div class="field"><label>年度</label><select id="holidayYear"></select></div><div class="field"><label>節日名稱</label><select id="holidayName"></select></div><button id="runHoliday">比較去年節日</button></div><div class="notice">節日日期來自 Supabase special_days 已維護的資料；若該年度沒有日期，系統會明確提示，不會自行猜測。政府日曆自動同步尚未設定。</div><div id="holidayResult"></div></section>
 <section id="half" class="panel view hidden"><h2>餐廳 × 30 分鐘 TC</h2><div class="flex"><div class="field"><label>開始日期</label><input id="from" type="date"></div><div class="field"><label>結束日期</label><input id="to" type="date"></div><div class="field"><label>餐期</label><select id="meal"><option value="all">全天</option><option value="breakfast">早餐 06:00–10:30</option><option value="lunch">午餐 10:30–14:00</option><option value="tea">下午茶 14:00–17:00</option><option value="dinner">晚餐 17:00–21:00</option><option value="night">消夜 21:00–06:00</option><option value="custom">自訂</option></select></div><div class="field"><label>開始時段</label><input id="timeFrom" type="time" step="1800" value="00:00"></div><div class="field"><label>結束時段</label><input id="timeTo" type="time" step="1800" value="23:30"></div><button id="runHalf">查詢 TC</button><button id="exportHalf">匯出 Excel</button></div><p class="subtle">餐期時間為暫定值，可自行切換自訂；消夜跨午夜分兩段查詢。表格僅呈現有資料的時段。</p><div id="halfResult" class="tablewrap"></div></section>
 <section id="coverage" class="panel view hidden"><h2>資料庫日期</h2><div class="flex"><div class="field"><label>開始日期</label><input id="covFrom" type="date"></div><div class="field"><label>結束日期</label><input id="covTo" type="date"></div><button id="runCoverage">檢查日期</button></div><div class="notice">「無訂單」與「尚未匯入」無法單靠訂單資料區分。未出現訂單的日期標記為「無資料／待確認」，不視為零 TC。</div><div id="covResult"></div></section>
-<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">請先確認原本 TC 資料表已建立，再執行隨附 03_master_import.sql。建議先用測試專案驗證。BI 訂單以訂購號碼＋餐廳名稱對應的餐廳 ID＋落單時間建立去重鍵；重複匯入會略過已存在的訂單。</div><h3>① 餐廳店號選單｜自動新增、改名、停業、恢復</h3>
+<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">請先確認原本 TC 資料表已建立，再執行隨附 03_master_import.sql。建議先用測試專案驗證。精簡模式：只儲存每家餐廳每天每 30 分鐘 TC，不儲存訂單明細。匯入必須包含所選日期的完整訂單，重新匯入會覆蓋該日 TC。</div><h3>① 餐廳店號選單｜自動新增、改名、停業、恢復</h3>
 <div class="flex"><input id="storeFile" type="file" accept=".xlsx,.xls"><div class="field"><label>名單類型</label><select id="storeMode"><option value="full">完整名單（未出現的店號自動停業）</option><option value="partial">部分名單（不自動停業）</option></select></div><button id="importStores">匯入餐廳主檔</button></div>
 <p class="subtle">自動選擇最新「按區_YYYYMMDD」工作表，依店號辨識餐廳。完整名單需至少 100 筆，匯入前預覽新增／更新／停業數量；資料庫一次交易處理。</p>
 <h3>② 外送中心 Mapping｜自動更新中心、Group</h3>
 <div class="flex"><input id="mapFile" type="file" accept=".xlsx,.xls"><button id="importMap">匯入 Mapping</button></div>
 <p class="subtle">使用 Worksheet 的 STR_NO、STR_SN、CenterID、Group。中心代碼 TWI981 自動轉 I981；同店號優先，舊餐廳代碼為空時才使用餐廳名稱對應；整批交易更新。</p>
-<h3>③ 匯入 BI 訂單 Excel</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。</p><div id="adminMsg" class="progress"></div></section></main>
+<h3>③ 匯入 BI 訂單 Excel｜只儲存 TC 統計</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。<strong>僅允許完整日期快照；有異常筆數的日期預設不覆蓋。</strong></p><div id="adminMsg" class="progress"></div></section></main>
 <script>
 'use strict';
 const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
@@ -77,52 +77,56 @@ function downloadBIFailures(items){
   const a=document.createElement('a');a.href=url;a.download='BI_匯入失敗明細_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 async function importBI(){
-  if(profile.role!=='op_admin')return;
-  const button=$('importBI');button.disabled=true;
-  let failures=[],inserted=0,duplicates=0,fileDuplicates=0,completed=0,total=0;
-  const show=message=>{
-    const lines=[`BI 總筆數：${total.toLocaleString()}；成功新增：${inserted.toLocaleString()}；重複略過：${(duplicates+fileDuplicates).toLocaleString()}；失敗：${failures.length.toLocaleString()}`];
-    status(lines.join('\n')+'\n'+message);
-    let old=$('biFailuresDownload');if(old)old.remove();
-    if(failures.length){const btn=document.createElement('button');btn.id='biFailuresDownload';btn.type='button';btn.textContent=`下載失敗明細 CSV（${failures.length} 筆）`;btn.style.marginTop='10px';btn.onclick=()=>downloadBIFailures(failures);$('adminMsg').insertAdjacentElement('afterend',btn)}
-  };
-  try{
-    const f=$('biFile').files[0],data=await readExcel(f);
-    if(!data.length)throw Error('Excel 沒有訂單資料');total=data.length;
-    const headers=Object.keys(data[0]);
-    for(const field of ['訂購號碼','ID','落單時間','預計送達','訂單狀態'])if(!headers.includes(field))throw Error(`BI 缺少必要欄位：${field}`);
-    const index=buildRestaurantNameIndex(),seen=new Set(),rows=[];
-    for(let i=0;i<data.length;i++){
-      const r=data[i],name=String(r.ID??'').trim(),order=String(r['訂購號碼']??'').trim();
-      const fail=reason=>failures.push({line:i+2,order,name,reason});
-      if(!name){fail('餐廳名稱空白');continue}
-      const matches=[...(index.get(normalizeRestaurantName(name))?.values()||[])];
-      if(!matches.length){fail('餐廳名稱無法對應主檔');continue}
-      if(matches.length>1){fail('餐廳名稱對應多家餐廳');continue}
-      const placed=datetime(r['落單時間']),promised=datetime(r['預計送達']);
-      if(!order||!placed||!promised){fail('訂購號碼／落單時間／預計送達缺漏');continue}
-      const rest=matches[0],orderKey=[rest.id,order,placed].join('|');
-      if(seen.has(orderKey)){fileDuplicates++;continue}
-      seen.add(orderKey);
-      rows.push({line:i+2,order,name,record:{order_key:orderKey,restaurant_id:rest.id,placed_at:placed,promised_at:promised,status:String(r['訂單狀態']??''),source_file:f.name}});
-    }
-    show(`已完成 Excel 驗證，準備寫入 ${rows.length.toLocaleString()} 筆有效資料。`);
-    if(!confirm(`BI 共 ${total.toLocaleString()} 筆；有效待寫入 ${rows.length.toLocaleString()} 筆；檔內重複 ${fileDuplicates.toLocaleString()} 筆；驗證失敗 ${failures.length.toLocaleString()} 筆。\n將略過異常並繼續匯入，確定嗎？`))return;
-    // PostgreSQL ON CONFLICT DO NOTHING + SELECT returns only actually inserted rows.
-    // Split failed batches recursively so one invalid record does not block the other records.
-    async function writeChunk(chunk){
-      const {data:added,error}=await sb.from('tc_orders').upsert(chunk.map(x=>x.record),{onConflict:'order_key',ignoreDuplicates:true}).select('order_key');
-      if(!error){inserted+=(added||[]).length;duplicates+=chunk.length-(added||[]).length;completed+=chunk.length;return}
-      if(chunk.length===1){const x=chunk[0];failures.push({line:x.line,order:x.order,name:x.name,reason:'資料庫寫入失敗：'+error.message});completed++;return}
-      const mid=Math.floor(chunk.length/2);await writeChunk(chunk.slice(0,mid));await writeChunk(chunk.slice(mid));
-    }
-    for(let i=0;i<rows.length;i+=200){await writeChunk(rows.slice(i,i+200));show(`寫入進度：${completed.toLocaleString()} / ${rows.length.toLocaleString()} 筆`)}
-    // The log is supplemental. A logging failure must not reclassify successful orders as failures.
-    const {error:logError}=await sb.from('tc_import_log').insert({file_name:f.name,rows_seen:total,rows_inserted:inserted});
-    show(`匯入完成。${logError?'注意：匯入紀錄寫入失敗（訂單仍已處理）：'+logError.message:'已記錄匯入結果。'}\n可下載失敗明細；取消訂單同樣納入匯入。`);
-  }catch(e){show('匯入中斷：'+e.message+'。已成功寫入的訂單不會回復；重新匯入會略過重複。');console.error(e)}
-  finally{button.disabled=false}
+ if(profile.role!=='op_admin')return;
+ const button=$('importBI');button.disabled=true;
+ const failures=[],dayMap=new Map(),blockedDates=new Set();let total=0,success=0,skipped=0,unknownDateFailures=0;
+ const fail=(line,order,name,reason,rawDate)=>{failures.push({line,order,name,reason});const d=datetime(rawDate)?.slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(d))blockedDates.add(d);else unknownDateFailures++};
+ try{
+  const f=$('biFile').files[0],data=await readExcel(f);
+  if(!data.length)throw Error('Excel 沒有訂單資料');total=data.length;
+  for(const col of ['訂購號碼','ID','落單時間','預計送達','訂單狀態'])if(!(col in data[0]))throw Error('BI 缺少欄位：'+col);
+  const index=buildRestaurantNameIndex(),seen=new Set();
+  for(let i=0;i<data.length;i++){
+   const r=data[i],name=String(r.ID??'').trim(),order=String(r['訂購號碼']??'').trim();
+   const placed=datetime(r['落單時間']),promised=datetime(r['預計送達']);
+   if(!name||!order||!placed||!promised){fail(i+2,order,name,'必要欄位空白',r['預計送達']);continue}
+   const matches=[...(index.get(normalizeRestaurantName(name))?.values()||[])];
+   if(matches.length!==1){fail(i+2,order,name,matches.length?'餐廳名稱對應多家':'餐廳名稱無法對應',r['預計送達']);continue}
+   const date=promised.slice(0,10),datePlaced=placed.slice(0,10);
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{4}-\d{2}-\d{2}$/.test(datePlaced)){fail(i+2,order,name,'日期格式錯誤',r['預計送達']);continue}
+   if(date!==datePlaced){fail(i+2,order,name,'落單與預計送達跨日：此日期需另行處理',r['預計送達']);blockedDates.add(datePlaced);continue}
+   const key=[matches[0].id,order,placed].join('|');
+   if(seen.has(key)){fail(i+2,order,name,'Excel 內重複訂單',r['預計送達']);continue}
+   seen.add(key);
+   if(!dayMap.has(date))dayMap.set(date,{count:0,buckets:new Map()});
+   const day=dayMap.get(date);day.count++;
+   for(const [basis,time] of [['placed',placed],['promised',promised]]){
+    const hh=Number(time.slice(11,13)),mm=Number(time.slice(14,16));
+    if(!Number.isInteger(hh)||hh>23||!Number.isInteger(mm)||mm>59)throw Error('日期時間格式不正確：第 '+(i+2)+' 列');
+    const bucket=hh*2+Math.floor(mm/30),k=[matches[0].id,basis,bucket].join('|');
+    day.buckets.set(k,(day.buckets.get(k)||0)+1);
+   }
+  }
+  const dates=[...dayMap.keys()].sort();
+  if(!dates.length)throw Error('沒有可匯入的完整日期資料');
+  // 異常日期不可覆蓋；其他完整日期仍可正常匯入。
+  if(unknownDateFailures){status(`BI 異常 ${failures.length} 筆，其中 ${unknownDateFailures} 筆無法判定日期。為避免少算，本次不覆蓋；請修正後重試。`);downloadBIFailures(failures);return;}
+  const readyDates=dates.filter(d=>!blockedDates.has(d));
+  if(!readyDates.length){status(`沒有可安全覆蓋的日期。異常 ${failures.length} 筆，受影響 ${blockedDates.size} 天；已下載失敗明細。`);if(failures.length)downloadBIFailures(failures);return;}
+  if(!confirm(`精簡 TC 匯入：${total.toLocaleString()} 筆、${readyDates.length} 個可匯入日期，${blockedDates.size} 天因異常略過。\n將依「預計送達日期」覆蓋這些日期的全部餐廳 TC（含落單時間基準）。\n請確認 Excel 包含每個日期的完整訂單，且沒有只匯出部分餐廳／部分時段。確定覆蓋嗎？`))return;
+  for(const date of readyDates){
+   const d=dayMap.get(date),rows=[...d.buckets].map(([k,tc])=>{const [restaurant_id,basis,bucket]=k.split('|');return {restaurant_id:Number(restaurant_id),basis,bucket:Number(bucket),tc}});
+   const {error}=await sb.rpc('tc_replace_day',{p_day:date,p_rows:rows,p_seen:d.count});
+   if(error){fail(0,'',date,'日期覆蓋失敗：'+error.message);skipped++;}
+   else success++;
+   status(`已完成 ${success+skipped}/${readyDates.length} 天；成功 ${success} 天、失敗 ${skipped} 天。\n只儲存 30 分鐘 TC，沒有儲存訂單明細。`);
+  }
+  if(failures.length)downloadBIFailures(failures);
+  status(`匯入結束：BI ${total.toLocaleString()} 筆；成功覆蓋 ${success} 天；寫入失敗 ${skipped} 天；資料異常略過 ${blockedDates.size} 天（${failures.length} 筆）。\n不寫入 tc_orders，僅保存彙總 TC。`);
+ }catch(e){status('匯入中止：'+e.message);console.error(e)}
+ finally{button.disabled=false}
 }
+
 function normalizeStoreCode(value){
   let s=String(value??'').trim().toUpperCase().replace(/[\s\u3000-]+/g,'');
   // Only normalize the numeric suffix when both sides use the same TWI/TWB prefix.
