@@ -8,15 +8,15 @@
 <div class="panel"><div class="flex"><div class="field"><label>中心</label><select id="center"></select></div><div class="field"><label>Group</label><select id="group"></select></div><div class="field"><label>餐廳</label><select id="restaurant"></select></div><div class="field"><label>統計時間</label><select id="basis"><option value="promised">預計送達</option><option value="placed">落單時間</option></select></div></div></div>
 <section id="weekly" class="panel view"><div class="heading"><h2>週 TC 比較｜本週 VS 上週</h2></div><div class="flex"><div class="field"><label>選擇週別（週一至週日）</label><select id="week"></select></div><button id="runWeek">查詢週 TC</button></div><p class="subtle">以相同星期對照；尚未匯入資料的日期顯示「—」，不當作零 TC。</p><div id="weekStats" class="statgrid"></div><div id="weekTable" class="tablewrap" style="margin-top:18px"></div></section>
 <section id="holiday" class="panel view hidden"><h2>節日 TC 比較</h2><div class="flex"><div class="field"><label>年度</label><select id="holidayYear"></select></div><div class="field"><label>節日名稱</label><select id="holidayName"></select></div><button id="runHoliday">比較去年節日</button></div><div class="notice">節日日期來自 Supabase special_days 已維護的資料；若該年度沒有日期，系統會明確提示，不會自行猜測。政府日曆自動同步尚未設定。</div><div id="holidayResult"></div></section>
-<section id="half" class="panel view hidden"><h2>餐廳 × 30 分鐘 TC</h2><div class="flex"><div class="field"><label>開始日期</label><input id="from" type="date"></div><div class="field"><label>結束日期</label><input id="to" type="date"></div><div class="field"><label>餐期</label><select id="meal"><option value="all">全天</option><option value="breakfast">早餐 06:00–10:30</option><option value="lunch">午餐 10:30–14:00</option><option value="tea">下午茶 14:00–17:00</option><option value="dinner">晚餐 17:00–21:00</option><option value="night">消夜 21:00–06:00</option><option value="custom">自訂</option></select></div><div class="field"><label>開始時段</label><input id="timeFrom" type="time" step="1800" value="00:00"></div><div class="field"><label>結束時段</label><input id="timeTo" type="time" step="1800" value="23:30"></div><button id="runHalf">查詢 TC</button><button id="exportHalf">匯出 Excel</button></div><p class="subtle">餐期時間為暫定值，可自行切換自訂；消夜跨午夜分兩段查詢。表格僅呈現有資料的時段。</p><div id="halfResult" class="tablewrap"></div></section>
+<section id="half" class="panel view hidden"><h2>餐廳 × 30 分鐘 TC</h2><div class="flex"><div class="field"><label>開始日期</label><input id="from" type="date"></div><div class="field"><label>結束日期</label><input id="to" type="date"></div><div class="field" style="min-width:360px;flex:1 1 360px"><label>星期篩選</label><div id="weekdayChoices" style="display:flex;flex-wrap:wrap;gap:8px 13px;align-items:center;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px"><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="weekdayAll" checked>全選</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="0" checked>週日</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="1" checked>週一</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="2" checked>週二</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="3" checked>週三</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="4" checked>週四</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="5" checked>週五</label><label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" class="weekdayChoice" value="6" checked>週六</label></div></div><div class="field"><label>餐期</label><select id="meal"><option value="all">全天</option><option value="breakfast">早餐 06:00–10:30</option><option value="lunch">午餐 10:30–14:00</option><option value="tea">下午茶 14:00–17:00</option><option value="dinner">晚餐 17:00–21:00</option><option value="night">消夜 21:00–06:00</option><option value="custom">自訂</option></select></div><div class="field"><label>開始時段</label><input id="timeFrom" type="time" step="1800" value="00:00"></div><div class="field"><label>結束時段</label><input id="timeTo" type="time" step="1800" value="23:30"></div><button id="runHalf">查詢 TC</button><button id="exportHalf">匯出 Excel</button></div><p class="subtle">餐期時間為暫定值，可自行切換自訂；消夜跨午夜分兩段查詢。表格僅呈現有資料的時段。</p><div id="halfResult" class="tablewrap"></div></section>
 <section id="coverage" class="panel view hidden"><h2>資料庫日期</h2><div class="flex"><div class="field"><label>開始日期</label><input id="covFrom" type="date"></div><div class="field"><label>結束日期</label><input id="covTo" type="date"></div><button id="runCoverage">檢查日期</button></div><div class="notice">「無訂單」與「尚未匯入」無法單靠訂單資料區分。未出現訂單的日期標記為「無資料／待確認」，不視為零 TC。</div><div id="covResult"></div></section>
-<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">請先確認原本 TC 資料表已建立，再執行隨附 03_master_import.sql。建議先用測試專案驗證。精簡模式：只儲存每家餐廳每天每 30 分鐘 TC，不儲存訂單明細。匯入必須包含所選日期的完整訂單，重新匯入會覆蓋該日 TC。</div><h3>① 餐廳店號選單｜自動新增、改名、停業、恢復</h3>
+<section id="admin" class="panel view hidden"><h2>系統管理｜僅 OP</h2><div class="notice">使用 TC 精簡彙總模式：BI 在瀏覽器統計，資料庫只儲存每家餐廳、每天、每 30 分鐘 TC。匯入採完整日期覆蓋，請勿使用部分餐廳或部分時段的檔案。</div><h3>① 餐廳店號選單｜自動新增、改名、停業、恢復</h3>
 <div class="flex"><input id="storeFile" type="file" accept=".xlsx,.xls"><div class="field"><label>名單類型</label><select id="storeMode"><option value="full">完整名單（未出現的店號自動停業）</option><option value="partial">部分名單（不自動停業）</option></select></div><button id="importStores">匯入餐廳主檔</button></div>
 <p class="subtle">自動選擇最新「按區_YYYYMMDD」工作表，依店號辨識餐廳。完整名單需至少 100 筆，匯入前預覽新增／更新／停業數量；資料庫一次交易處理。</p>
 <h3>② 外送中心 Mapping｜自動更新中心、Group</h3>
 <div class="flex"><input id="mapFile" type="file" accept=".xlsx,.xls"><button id="importMap">匯入 Mapping</button></div>
 <p class="subtle">使用 Worksheet 的 STR_NO、STR_SN、CenterID、Group。中心代碼 TWI981 自動轉 I981；同店號優先，舊餐廳代碼為空時才使用餐廳名稱對應；整批交易更新。</p>
-<h3>③ 匯入 BI 訂單 Excel｜只儲存 TC 統計</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。<strong>僅允許完整日期快照；有異常筆數的日期預設不覆蓋。</strong></p><div id="adminMsg" class="progress"></div></section></main>
+<h3>③ 匯入 BI 訂單 Excel</h3><div class="flex"><input id="biFile" type="file" accept=".xlsx,.xls"><button id="importBI">匯入 BI</button></div><p class="subtle">需要欄位：訂購號碼、ID（餐廳名稱）、落單時間、預計送達、訂單狀態。AC 為中心代碼，絕不當作餐廳代碼。依餐廳名稱對應 restaurants.restaurant_name 或 Mapping STR_SN。<b>異常訂單會略過，正常訂單繼續彙總；匯入前會提示覆蓋日期及少算風險。</b></p><div id="adminMsg" class="progress"></div></section></main>
 <script>
 'use strict';
 const SUPABASE_URL='https://dttqrfofmlacdewwzhme.supabase.co';
@@ -44,7 +44,7 @@ function refreshHolidays(){let year=$('holidayYear').value,items=special.filter(
 async function runHoliday(){try{let y=Number($('holidayYear').value),k=$('holidayName').value;if(!k)throw Error('請選擇節日');let get=yr=>special.filter(s=>s.event_date?.startsWith(String(yr))&&(s.event_key||s.event_name)===k&&(!s.center_id||!$('center').value||s.center_id===$('center').value)).map(s=>s.event_date).sort();let cur=get(y),prev=get(y-1);if(!cur.length||!prev.length){$('holidayResult').innerHTML='<div class="notice">目前 special_days 缺少本年或去年節日日期，無法可靠比較。請先維護節日日期。</div>';return}let rs=await query(prev[0]<cur[0]?prev[0]:cur[0],prev.at(-1)>cur.at(-1)?prev.at(-1):cur.at(-1));let v=ds=>ds.map(d=>sum(rs.filter(x=>x.business_date===d))),a=v(prev),b=v(cur);$('holidayResult').innerHTML=`<div class="statgrid" style="margin:20px 0">${[['去年總 TC',sum(a)],['今年總 TC',sum(b)],['去年日均 TC',Math.round(sum(a)/a.length)],['今年日均 TC',Math.round(sum(b)/b.length)]].map(([n,v])=>`<div class="stat">${n}<b>${v.toLocaleString()}</b></div>`).join('')}</div><div class="tablewrap">${table(['節日第幾天','去年日期','去年 TC','今年日期','今年 TC'],Array.from({length:Math.max(a.length,b.length)},(_,i)=>[i+1,prev[i]||'—',a[i]??'—',cur[i]||'—',b[i]??'—']))}</div>`}catch(e){err(e)}}
 function mealTimes(){let m=$('meal').value;return ({all:[[0,1440]],breakfast:[[360,630]],lunch:[[630,840]],tea:[[840,1020]],dinner:[[1020,1260]],night:[[1260,1440],[0,360]],custom:[[mins($('timeFrom').value),mins($('timeTo').value)+30]]})[m]}
 function mins(s){let [h,m]=s.split(':').map(Number);return h*60+m}
-async function runHalf(){try{let a=$('from').value,b=$('to').value;if(!a||!b||a>b)throw Error('請確認日期範圍');let parts=await Promise.all(mealTimes().map(([s,e])=>query(a,b,s,e)));let rs=parts.flat(),bucket=[...new Set(rs.map(x=>x.bucket))].sort(),ids=[...new Set(rs.map(x=>String(x.restaurant_id)))];halfRows=[['餐廳',...bucket,'合計'],...ids.map(id=>{let r=restaurants.find(x=>String(x.id)===id),rdata=rs.filter(x=>String(x.restaurant_id)===id);return [`${r?.restaurant_code||''} ${r?.restaurant_name||id}`,...bucket.map(t=>sum(rdata.filter(x=>x.bucket===t))),sum(rdata)]})];$('halfResult').innerHTML=halfRows.length>1?table(halfRows[0],halfRows.slice(1)):'<p class="subtle" style="padding:15px">沒有符合條件的 TC 資料。</p>'}catch(e){err(e)}}
+async function runHalf(){try{let a=$('from').value,b=$('to').value;if(!a||!b||a>b)throw Error('請確認日期範圍');let selectedDays=new Set([...document.querySelectorAll('.weekdayChoice:checked')].map(x=>Number(x.value)));if(!selectedDays.size)throw Error('請至少選擇一個星期');let parts=await Promise.all(mealTimes().map(([s,e])=>query(a,b,s,e)));let rs=parts.flat().filter(x=>selectedDays.has(new Date(x.business_date+'T12:00:00').getDay())),bucket=[...new Set(rs.map(x=>x.bucket))].sort(),ids=[...new Set(rs.map(x=>String(x.restaurant_id)))];halfRows=[['餐廳',...bucket,'合計'],...ids.map(id=>{let r=restaurants.find(x=>String(x.id)===id),rdata=rs.filter(x=>String(x.restaurant_id)===id);return [`${r?.restaurant_code||''} ${r?.restaurant_name||id}`,...bucket.map(t=>sum(rdata.filter(x=>x.bucket===t))),sum(rdata)]})];$('halfResult').innerHTML=halfRows.length>1?table(halfRows[0],halfRows.slice(1)):'<p class="subtle" style="padding:15px">沒有符合條件的 TC 資料。</p>'}catch(e){err(e)}}
 async function runCoverage(){try{let a=$('covFrom').value,b=$('covTo').value;if(!a||!b||a>b)throw Error('日期範圍不正確');let rs=await query(a,b),dates=new Map();for(let r of rs)dates.set(r.business_date,(dates.get(r.business_date)||0)+Number(r.tc));let rows=[];for(let d=a;d<=b;d=add(d,1)){rows.push([d,dates.has(d)?dates.get(d).toLocaleString():'—',dates.has(d)?'有訂單資料':'無資料／待確認']);if(rows.length>730)throw Error('單次最多查詢 730 天')}let count=rows.filter(r=>r[2]==='有訂單資料').length;$('covResult').innerHTML=`<div class="statgrid" style="margin:18px 0"><div class="stat">查詢天數<b>${rows.length}</b></div><div class="stat">有訂單資料天數<b>${count}</b></div><div class="stat">無資料／待確認<b>${rows.length-count}</b></div><div class="stat">區間 TC<b>${sum(rs).toLocaleString()}</b></div></div><div class="tablewrap">${table(['日期','TC','狀態'],rows)}</div>`}catch(e){err(e)}}
 async function readExcel(file,sheet){if(!file)throw Error('請選擇 Excel');let bytes=await file.arrayBuffer(),wb=XLSX.read(bytes,{type:'array',cellDates:true}),ws=wb.Sheets[sheet]||wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{defval:''})}
 function datetime(v){if(v instanceof Date&&!isNaN(v))return `${fmt(v)} ${String(v.getHours()).padStart(2,'0')}:${String(v.getMinutes()).padStart(2,'0')}:${String(v.getSeconds()).padStart(2,'0')}`;if(typeof v==='number'){let p=XLSX.SSF.parse_date_code(v);if(p)return `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')} ${String(p.H).padStart(2,'0')}:${String(p.M).padStart(2,'0')}:${String(p.S).padStart(2,'0')}`}return String(v||'').replace('T',' ').slice(0,19)||null}
@@ -79,51 +79,58 @@ function downloadBIFailures(items){
 async function importBI(){
  if(profile.role!=='op_admin')return;
  const button=$('importBI');button.disabled=true;
- const failures=[],dayMap=new Map(),blockedDates=new Set();let total=0,success=0,skipped=0,unknownDateFailures=0;
- const fail=(line,order,name,reason,rawDate)=>{failures.push({line,order,name,reason});const d=datetime(rawDate)?.slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(d))blockedDates.add(d);else unknownDateFailures++};
+ const failures=[],dayMap=new Map(),seen=new Set();
+ let total=0,valid=0,duplicate=0,successDays=0,failedDays=0,successOrders=0,unknownDate=0;
+ const fail=(line,order,name,reason)=>{failures.push({line,order,name,reason});};
+ const show=(message)=>{
+  status(`BI 總筆數：${total.toLocaleString()}；有效：${valid.toLocaleString()}；檔內重複：${duplicate.toLocaleString()}；異常略過：${failures.length.toLocaleString()}（無法判定日期 ${unknownDate}）\n成功覆蓋：${successDays} 天／${successOrders.toLocaleString()} 筆有效 TC；寫入失敗：${failedDays} 天\n${message}`);
+  let old=$('biFailuresDownload');if(old)old.remove();
+  if(failures.length){let btn=document.createElement('button');btn.id='biFailuresDownload';btn.type='button';btn.textContent=`下載異常明細 CSV（${failures.length} 筆）`;btn.onclick=()=>downloadBIFailures(failures);$('adminMsg').insertAdjacentElement('afterend',btn)}
+ };
  try{
   const f=$('biFile').files[0],data=await readExcel(f);
   if(!data.length)throw Error('Excel 沒有訂單資料');total=data.length;
   for(const col of ['訂購號碼','ID','落單時間','預計送達','訂單狀態'])if(!(col in data[0]))throw Error('BI 缺少欄位：'+col);
-  const index=buildRestaurantNameIndex(),seen=new Set();
+  const index=buildRestaurantNameIndex();
   for(let i=0;i<data.length;i++){
    const r=data[i],name=String(r.ID??'').trim(),order=String(r['訂購號碼']??'').trim();
    const placed=datetime(r['落單時間']),promised=datetime(r['預計送達']);
-   if(!name||!order||!placed||!promised){fail(i+2,order,name,'必要欄位空白',r['預計送達']);continue}
+   const goodTime=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)&&!isNaN(new Date(s.replace(' ','T')).getTime());
+   if(!goodTime(placed)||!goodTime(promised)){unknownDate++;fail(i+2,order,name,'落單／預計送達時間缺漏或格式錯誤');continue}
+   if(!name||!order){fail(i+2,order,name,!name?'餐廳名稱空白':'訂購號碼空白');continue}
    const matches=[...(index.get(normalizeRestaurantName(name))?.values()||[])];
-   if(matches.length!==1){fail(i+2,order,name,matches.length?'餐廳名稱對應多家':'餐廳名稱無法對應',r['預計送達']);continue}
+   if(matches.length!==1){fail(i+2,order,name,matches.length?'餐廳名稱對應多家':'餐廳名稱無法對應');continue}
    const date=promised.slice(0,10),datePlaced=placed.slice(0,10);
-   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{4}-\d{2}-\d{2}$/.test(datePlaced)){fail(i+2,order,name,'日期格式錯誤',r['預計送達']);continue}
-   if(date!==datePlaced){fail(i+2,order,name,'落單與預計送達跨日：此日期需另行處理',r['預計送達']);blockedDates.add(datePlaced);continue}
+   if(date!==datePlaced){fail(i+2,order,name,'跨日訂單：為避免兩種時間基準日期不一致，已略過');continue}
    const key=[matches[0].id,order,placed].join('|');
-   if(seen.has(key)){fail(i+2,order,name,'Excel 內重複訂單',r['預計送達']);continue}
+   if(seen.has(key)){duplicate++;continue}
    seen.add(key);
-   if(!dayMap.has(date))dayMap.set(date,{count:0,buckets:new Map()});
-   const day=dayMap.get(date);day.count++;
+   const buckets=[];
    for(const [basis,time] of [['placed',placed],['promised',promised]]){
     const hh=Number(time.slice(11,13)),mm=Number(time.slice(14,16));
-    if(!Number.isInteger(hh)||hh>23||!Number.isInteger(mm)||mm>59)throw Error('日期時間格式不正確：第 '+(i+2)+' 列');
-    const bucket=hh*2+Math.floor(mm/30),k=[matches[0].id,basis,bucket].join('|');
-    day.buckets.set(k,(day.buckets.get(k)||0)+1);
+    if(hh>23||mm>59){buckets.length=0;break}
+    buckets.push([basis,hh*2+Math.floor(mm/30)]);
    }
+   if(buckets.length!==2){unknownDate++;fail(i+2,order,name,'時間超出有效範圍');continue}
+   if(!dayMap.has(date))dayMap.set(date,{count:0,buckets:new Map()});
+   const day=dayMap.get(date);day.count++;valid++;
+   for(const [basis,bucket] of buckets){const k=[matches[0].id,basis,bucket].join('|');day.buckets.set(k,(day.buckets.get(k)||0)+1)}
   }
   const dates=[...dayMap.keys()].sort();
-  if(!dates.length)throw Error('沒有可匯入的完整日期資料');
-  // 異常日期不可覆蓋；其他完整日期仍可正常匯入。
-  if(unknownDateFailures){status(`BI 異常 ${failures.length} 筆，其中 ${unknownDateFailures} 筆無法判定日期。為避免少算，本次不覆蓋；請修正後重試。`);downloadBIFailures(failures);return;}
-  const readyDates=dates.filter(d=>!blockedDates.has(d));
-  if(!readyDates.length){status(`沒有可安全覆蓋的日期。異常 ${failures.length} 筆，受影響 ${blockedDates.size} 天；已下載失敗明細。`);if(failures.length)downloadBIFailures(failures);return;}
-  if(!confirm(`精簡 TC 匯入：${total.toLocaleString()} 筆、${readyDates.length} 個可匯入日期，${blockedDates.size} 天因異常略過。\n將依「預計送達日期」覆蓋這些日期的全部餐廳 TC（含落單時間基準）。\n請確認 Excel 包含每個日期的完整訂單，且沒有只匯出部分餐廳／部分時段。確定覆蓋嗎？`))return;
-  for(const date of readyDates){
+  show('Excel 驗證完成。異常資料已略過，正常資料可繼續匯入。');
+  if(!dates.length){show('沒有可匯入的有效 TC 資料。');return}
+  // Full-day replacement is not provably complete if some rows are skipped. Explicitly ask the operator.
+  const warning=failures.length?`\n警告：已略過 ${failures.length} 筆異常（其中 ${unknownDate} 筆日期無法判定）。若異常訂單屬於本次覆蓋日期，該日 TC 會少算。請確認可以接受，或先修正 Excel。`:'';
+  if(!confirm(`精簡 TC 匯入：共 ${total.toLocaleString()} 筆、有效 ${valid.toLocaleString()} 筆、檔內重複 ${duplicate.toLocaleString()} 筆、異常 ${failures.length.toLocaleString()} 筆。\n將覆蓋 ${dates.length} 天的 TC 彙總，不會儲存訂單明細。${warning}\n\n重要：Excel 必須包含上述日期全部餐廳、全部時段的訂單。確定繼續？`)){show('已取消匯入，沒有寫入資料。');return}
+  for(const date of dates){
    const d=dayMap.get(date),rows=[...d.buckets].map(([k,tc])=>{const [restaurant_id,basis,bucket]=k.split('|');return {restaurant_id:Number(restaurant_id),basis,bucket:Number(bucket),tc}});
    const {error}=await sb.rpc('tc_replace_day',{p_day:date,p_rows:rows,p_seen:d.count});
-   if(error){fail(0,'',date,'日期覆蓋失敗：'+error.message);skipped++;}
-   else success++;
-   status(`已完成 ${success+skipped}/${readyDates.length} 天；成功 ${success} 天、失敗 ${skipped} 天。\n只儲存 30 分鐘 TC，沒有儲存訂單明細。`);
+   if(error){fail(0,'',date,'日期覆蓋失敗：'+error.message);failedDays++}
+   else{successDays++;successOrders+=d.count}
+   show(`匯入進度：${successDays+failedDays}/${dates.length} 天`);
   }
-  if(failures.length)downloadBIFailures(failures);
-  status(`匯入結束：BI ${total.toLocaleString()} 筆；成功覆蓋 ${success} 天；寫入失敗 ${skipped} 天；資料異常略過 ${blockedDates.size} 天（${failures.length} 筆）。\n不寫入 tc_orders，僅保存彙總 TC。`);
- }catch(e){status('匯入中止：'+e.message);console.error(e)}
+  show(`匯入完成。僅保存餐廳 × 日期 × 30 分鐘 TC；未寫入 tc_orders。${failures.length?'請下載異常明細核對。':''}`);
+ }catch(e){show('匯入中斷：'+e.message);console.error(e)}
  finally{button.disabled=false}
 }
 
@@ -204,5 +211,5 @@ async function importMap(){
   status('Mapping 更新成功：'+JSON.stringify(data)+'\n下一步：匯入 BI。');await reloadMeta();
  }catch(e){status('Mapping 匯入失敗：'+e.message);console.error(e)}
 }
-$('loginBtn').onclick=async()=>{let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)$('loginMsg').textContent=error.message;else boot()};$('tabs').onclick=e=>{let b=e.target.closest('button[data-tab]');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab))};$('center').onchange=()=>{updateFilters();refreshHolidays()};$('group').onchange=updateFilters;$('holidayYear').onchange=refreshHolidays;$('runWeek').onclick=runWeek;$('runHoliday').onclick=runHoliday;$('runHalf').onclick=runHalf;$('runCoverage').onclick=runCoverage;$('importBI').onclick=importBI;$('importMap').onclick=importMap;$('importStores').onclick=importStores;$('exportHalf').onclick=()=>{if(!halfRows.length)return alert('請先查詢');let ws=XLSX.utils.aoa_to_sheet(halfRows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'餐廳30分鐘TC');XLSX.writeFile(wb,'TC_30分鐘.xlsx')};boot();
+$('weekdayAll').onchange=()=>{document.querySelectorAll('.weekdayChoice').forEach(x=>x.checked=$('weekdayAll').checked)};document.querySelectorAll('.weekdayChoice').forEach(x=>x.onchange=()=>{$('weekdayAll').checked=[...document.querySelectorAll('.weekdayChoice')].every(y=>y.checked)});$('loginBtn').onclick=async()=>{let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)$('loginMsg').textContent=error.message;else boot()};$('tabs').onclick=e=>{let b=e.target.closest('button[data-tab]');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab))};$('center').onchange=()=>{updateFilters();refreshHolidays()};$('group').onchange=updateFilters;$('holidayYear').onchange=refreshHolidays;$('runWeek').onclick=runWeek;$('runHoliday').onclick=runHoliday;$('runHalf').onclick=runHalf;$('runCoverage').onclick=runCoverage;$('importBI').onclick=importBI;$('importMap').onclick=importMap;$('importStores').onclick=importStores;$('exportHalf').onclick=()=>{if(!halfRows.length)return alert('請先查詢');let ws=XLSX.utils.aoa_to_sheet(halfRows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'餐廳30分鐘TC');XLSX.writeFile(wb,'TC_30分鐘.xlsx')};boot();
 </script></body></html>
